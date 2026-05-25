@@ -149,8 +149,8 @@ export default function Products() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Plugin</label>
-              <select className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500">
+              <label className="block text-sm font-medium text-slate-700 mb-1" htmlFor="products-plugin">Plugin</label>
+              <select id="products-plugin" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500">
                 <option value="">Select plugin...</option>
                 {mockProducts.map((p) => (
                   <option key={p.id} value={p.slug}>{p.name}</option>

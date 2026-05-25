@@ -38,7 +38,7 @@ jobs:
       - name: Run ESLint with jsx-a11y plugin
         working-directory: frontend
         run: |
-          npm run lint -- --plugin jsx-a11y 2>/dev/null || true
+          npm run lint:a11y
 
       - name: Run accessibility tests
         working-directory: frontend
