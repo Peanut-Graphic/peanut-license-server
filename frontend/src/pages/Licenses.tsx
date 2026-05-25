@@ -286,8 +286,8 @@ export default function Licenses() {
               required
             />
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">License Tier</label>
-              <select className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500">
+              <label className="block text-sm font-medium text-slate-700 mb-1" htmlFor="licenses-license-tier">License Tier</label>
+              <select id="licenses-license-tier" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500">
                 <option value="free">Free (1 activation)</option>
                 <option value="pro">Pro (3 activations)</option>
                 <option value="agency">Agency (25 activations)</option>
