@@ -5,6 +5,25 @@ All notable changes to Peanut License Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.5] - 2026-06-06
+
+### Added
+- PHP backend test + coverage CI gate (`tests` workflow) — the license/billing
+  backend previously had no PHP CI; Unit suite (Brain Monkey, no DB) now runs on
+  every PR with a coverage floor that ratchets up over time
+- Mock-WordPress test bootstrap (`tests/bootstrap.php`, `tests/wp-stubs.php`) so
+  the Unit suite runs without the full WP test harness
+- Frontend accessibility CI pipeline (axe) with component a11y tests
+
+### Fixed
+- Mobile license admin surfaces
+- Frontend accessibility lint that never actually ran; associated form labels
+  with their controls
+
+### Changed
+- Extracted download-token helpers into `includes/download-token-functions.php`
+- Synced `.editorconfig` and `.gitignore` with ecosystem standard templates
+
 ## [1.3.2] - 2026-01-03
 
 ### Added
