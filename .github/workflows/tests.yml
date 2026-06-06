@@ -13,16 +13,14 @@ jobs:
   php-tests:
     runs-on: ubuntu-latest
     env:
-      # Conservative coverage floor. The gated Unit suite (tests/phpunit/unit,
-      # ~174 mock-WordPress tests, no DB) exercises a subset of the ~25 classes
-      # in includes/, so absolute coverage is still modest. The floor is set low
-      # on purpose: it must catch a total regression to ~nothing without flaking
-      # on cross-PHP-version statement-count variance — it is NOT the real
-      # number. The coverage-gate step prints the exact "PASS N% (covered/total)"
-      # line each run; read it from the CI log and RATCHET this up from there as
-      # licensing/billing tests are added — toward 5, 10, 20, ... and ultimately
-      # back to the original 40 goal.
-      MIN_COVERAGE: "1"
+      # Coverage floor for the gated Unit suite (tests/phpunit/unit, ~174
+      # mock-WordPress tests, no DB). Measured on CI (PHP 8.2 + pcov): 11.35%
+      # (606/5339 statements). Floor set ~5 points under that so it catches a
+      # real regression while tolerating cross-PHP-version statement-count
+      # variance. The coverage-gate step prints the exact "PASS N% (covered/total)"
+      # line each run — RATCHET this up as licensing/billing tests are added,
+      # toward 20, 30, ... and ultimately the original 40 goal.
+      MIN_COVERAGE: "6"
     steps:
       - uses: actions/checkout@v4
 
