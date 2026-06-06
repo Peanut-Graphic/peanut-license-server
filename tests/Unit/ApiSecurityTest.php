@@ -261,8 +261,8 @@ class ApiSecurityTest extends TestCase {
     /**
      * Helper to create a mock WP_REST_Request
      */
-    private function createMockRequest(array $params, array $headers = [], string $body = ''): object {
-        return new class($params, $headers, $body) {
+    private function createMockRequest(array $params, array $headers = [], string $body = ''): \WP_REST_Request {
+        return new class($params, $headers, $body) extends \WP_REST_Request {
             private array $params;
             private array $headers;
             private string $body;
