@@ -13,14 +13,14 @@ jobs:
   php-tests:
     runs-on: ubuntu-latest
     env:
-      # Real measured Unit coverage is ~5.3% (284/5363 statements) — the Unit
-      # suite (Brain Monkey, no DB) only exercises a handful of the ~25 classes
-      # in includes/. Floor set a few points under that so the gate passes with
-      # headroom (and absorbs cross-PHP-version statement-count variance), while
-      # still failing if coverage regresses to ~nothing.
-      # RATCHET UP as licensing/billing tests are added — bump toward 5, then 10,
-      # 20, ... and ultimately back to the original 40 goal.
-      MIN_COVERAGE: "1"
+      # Coverage floor for the gated Unit suite (tests/phpunit/unit, ~174
+      # mock-WordPress tests, no DB). Measured on CI (PHP 8.2 + pcov): 11.35%
+      # (606/5339 statements). Floor set ~5 points under that so it catches a
+      # real regression while tolerating cross-PHP-version statement-count
+      # variance. The coverage-gate step prints the exact "PASS N% (covered/total)"
+      # line each run — RATCHET this up as licensing/billing tests are added,
+      # toward 20, 30, ... and ultimately the original 40 goal.
+      MIN_COVERAGE: "6"
     steps:
       - uses: actions/checkout@v4
 
@@ -34,7 +34,7 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist
 
-      - name: Unit tests + coverage (Brain Monkey — no DB needed)
+      - name: Unit tests + coverage (mock-WordPress bootstrap — no DB needed)
         run: vendor/bin/phpunit --testsuite=Unit --coverage-clover=coverage/clover.xml
 
       - name: Coverage gate
