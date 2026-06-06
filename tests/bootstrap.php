@@ -22,6 +22,41 @@ if (!defined('WPINC')) {
     define('WPINC', 'wp-includes');
 }
 
+// WordPress time constant used by the download-token helpers.
+if (!defined('HOUR_IN_SECONDS')) {
+    define('HOUR_IN_SECONDS', 3600);
+}
+
+// Stand-in for the WordPress AUTH_KEY salt so peanut_get_download_secret()
+// returns a stable, non-empty signing secret during tests.
+if (!defined('AUTH_KEY')) {
+    define('AUTH_KEY', 'peanut-license-server-test-auth-key');
+}
+
+// Minimal WordPress class/function stubs (WP_Error, WP_REST_Request, is_wp_error)
+// required by the API security tests. ABSPATH is defined above so the guard in
+// the loaded files passes.
+require_once __DIR__ . '/wp-stubs.php';
+
+// Load the pure download-token helpers in isolation (without booting the full
+// plugin) so DownloadSecurityTest can call them directly.
+require_once dirname(__DIR__) . '/includes/download-token-functions.php';
+
+// Minimal $wpdb mock for code paths that touch the database (e.g.
+// Peanut_API_Security::get_statistics() counting blocked-IP transients).
+global $wpdb;
+$wpdb = new class {
+    public string $options = 'wp_options';
+
+    public function prepare(string $query, ...$args): string {
+        return $query;
+    }
+
+    public function get_var($query) {
+        return 0;
+    }
+};
+
 // Mock essential WordPress functions using Brain Monkey
 function peanut_mock_wordpress_functions(): void {
     // Translation functions
@@ -166,6 +201,25 @@ function peanut_mock_wordpress_functions(): void {
     Brain\Monkey\Functions\stubs([
         'wp_json_encode' => function ($data, $options = 0, $depth = 512) {
             return json_encode($data, $options, $depth);
+        },
+    ]);
+
+    // HTTP API functions — there is no real network in unit tests, so remote
+    // services (e.g. the optional ML abuse detector) are reported unavailable.
+    // Callers are written to gracefully degrade in that case, so this exercises
+    // the real degradation path rather than mocking it away.
+    Brain\Monkey\Functions\stubs([
+        'wp_remote_get' => function ($url = '', $args = []) {
+            return new \WP_Error('http_request_failed', 'No HTTP requests in unit tests.');
+        },
+        'wp_remote_post' => function ($url = '', $args = []) {
+            return new \WP_Error('http_request_failed', 'No HTTP requests in unit tests.');
+        },
+        'wp_remote_retrieve_response_code' => function ($response) {
+            return 0;
+        },
+        'wp_remote_retrieve_body' => function ($response) {
+            return '';
         },
     ]);
 

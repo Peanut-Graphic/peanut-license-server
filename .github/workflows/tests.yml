@@ -1,0 +1,52 @@
+# PHP backend tests + coverage gate.
+# Added in Wave 1 of the ecosystem testing scrub — the license/billing backend
+# previously had NO PHP CI (the only workflow was frontend accessibility).
+# Follows DOCUMENTATION/testing-standard/ci-templates/php-plugin-tests.yml.
+name: tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  php-tests:
+    runs-on: ubuntu-latest
+    env:
+      # Real measured Unit coverage is ~5.3% (284/5363 statements) — the Unit
+      # suite (Brain Monkey, no DB) only exercises a handful of the ~25 classes
+      # in includes/. Floor set a few points under that so the gate passes with
+      # headroom (and absorbs cross-PHP-version statement-count variance), while
+      # still failing if coverage regresses to ~nothing.
+      # RATCHET UP as licensing/billing tests are added — bump toward 5, then 10,
+      # 20, ... and ultimately back to the original 40 goal.
+      MIN_COVERAGE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP (pcov for coverage)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: pcov
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Unit tests + coverage (Brain Monkey — no DB needed)
+        run: vendor/bin/phpunit --testsuite=Unit --coverage-clover=coverage/clover.xml
+
+      - name: Coverage gate
+        run: php "${{ github.workspace }}/coverage-gate.php" coverage/clover.xml "$MIN_COVERAGE"
+
+      - name: Integration tests (non-blocking until infra wired)
+        continue-on-error: true
+        run: vendor/bin/phpunit --testsuite=Integration
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-coverage
+          path: coverage/

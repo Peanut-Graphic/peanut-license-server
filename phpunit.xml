@@ -1,27 +1,41 @@
-<?xml version="1.0"?>
-<phpunit
-	bootstrap="tests/bootstrap.php"
-	backupGlobals="false"
-	colors="true"
-	convertErrorsToExceptions="true"
-	convertNoticesToExceptions="true"
-	convertWarningsToExceptions="true"
->
-	<testsuites>
-		<testsuite name="Peanut License Server Test Suite">
-			<directory prefix="test-" suffix=".php">./tests/</directory>
-		</testsuite>
-	</testsuites>
-	<filter>
-		<whitelist processUncoveredFilesFromWhitelist="true">
-			<directory suffix=".php">./includes/</directory>
-			<exclude>
-				<directory suffix=".php">./vendor/</directory>
-				<directory suffix=".php">./node_modules/</directory>
-			</exclude>
-		</whitelist>
-	</filter>
-	<php>
-		<const name="PEANUT_LICENSE_TEST_MODE" value="true"/>
-	</php>
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PHPUnit 10 configuration (composer requires phpunit ^10).
+
+  Fixed in Wave 1 of the ecosystem testing scrub:
+    - Old <filter><whitelist> removed in PHPUnit 10 -> replaced with <source>.
+    - Removed convert* attributes (no longer valid in PHPUnit 10).
+    - Previous single testsuite used prefix="test-", which matched ZERO of the
+      real *Test.php files, so the suite collected nothing. Now points at the
+      real tests/Unit and tests/Integration directories (also fixes the
+      composer "test:unit"/"test:integration" scripts that referenced these
+      suite names).
+  See DOCUMENTATION/testing-standard/ for the shared standard this follows.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         failOnWarning="false"
+         failOnRisky="false"
+         cacheDirectory=".phpunit.cache">
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+    </testsuites>
+
+    <!-- Coverage source (replaces the removed <whitelist>). -->
+    <source>
+        <include>
+            <directory suffix=".php">includes</directory>
+        </include>
+    </source>
+
+    <php>
+        <const name="PEANUT_LICENSE_TEST_MODE" value="true"/>
+    </php>
 </phpunit>
