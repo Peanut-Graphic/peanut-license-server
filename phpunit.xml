@@ -2,26 +2,33 @@
 <!--
   PHPUnit 10 configuration (composer requires phpunit ^10).
 
-  Fixed in Wave 1 of the ecosystem testing scrub:
+  Testing scrub notes:
     - Old <filter><whitelist> removed in PHPUnit 10 -> replaced with <source>.
     - Removed convert* attributes (no longer valid in PHPUnit 10).
-    - Previous single testsuite used prefix="test-", which matched ZERO of the
-      real *Test.php files, so the suite collected nothing. Now points at the
-      real tests/Unit and tests/Integration directories (also fixes the
-      composer "test:unit"/"test:integration" scripts that referenced these
-      suite names).
-  See DOCUMENTATION/testing-standard/ for the shared standard this follows.
+
+  The gated "Unit" suite is tests/phpunit/unit (~174 @test methods) running on
+  the self-contained mock-WordPress bootstrap tests/phpunit/bootstrap.php. It
+  needs no database or real WP — it stubs WP functions, a $wpdb mock, and loads
+  the plugin's standalone download-token helpers in isolation. This is the suite
+  CI blocks on.
+
+  (An older, parallel tests/Unit tree exists from an earlier pass; it is no
+  longer wired into a suite. tests/phpunit/unit is the canonical unit suite.)
+
+  The "Integration" suite (tests/Integration) needs the real WP test library and
+  is intentionally non-blocking in CI (continue-on-error) until that infra is
+  wired. See DOCUMENTATION/testing-standard/ for the shared standard.
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
-         bootstrap="tests/bootstrap.php"
+         bootstrap="tests/phpunit/bootstrap.php"
          colors="true"
          failOnWarning="false"
          failOnRisky="false"
          cacheDirectory=".phpunit.cache">
     <testsuites>
         <testsuite name="Unit">
-            <directory>tests/Unit</directory>
+            <directory>tests/phpunit/unit</directory>
         </testsuite>
         <testsuite name="Integration">
             <directory>tests/Integration</directory>

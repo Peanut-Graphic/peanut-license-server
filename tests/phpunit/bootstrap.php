@@ -216,6 +216,11 @@ function esc_url_raw(string $url): string {
     return filter_var($url, FILTER_SANITIZE_URL);
 }
 
+// WordPress alias of esc_url_raw() for sanitizing a URL for storage/use.
+function sanitize_url(string $url): string {
+    return filter_var($url, FILTER_SANITIZE_URL);
+}
+
 // Sanitization functions
 function sanitize_text_field(string $str): string {
     return trim(strip_tags($str));
@@ -228,6 +233,10 @@ function sanitize_email(string $email): string {
 
 function sanitize_file_name(string $filename): string {
     return preg_replace('/[^a-zA-Z0-9._-]/', '', $filename);
+}
+
+function sanitize_key(string $key): string {
+    return preg_replace('/[^a-z0-9_\-]/', '', strtolower($key));
 }
 
 function sanitize_sql_orderby(string $orderby): ?string {
@@ -272,6 +281,29 @@ function plugin_dir_path(string $file): string {
 
 function plugin_dir_url(string $file): string {
     return 'https://example.com/wp-content/plugins/' . basename(dirname($file)) . '/';
+}
+
+// add_query_arg( array $args, string $url ) or add_query_arg( $key, $value, $url ).
+function add_query_arg(...$args): string {
+    if (is_array($args[0])) {
+        $params = $args[0];
+        $url = $args[1] ?? '';
+    } else {
+        $params = [$args[0] => $args[1] ?? ''];
+        $url = $args[2] ?? '';
+    }
+    $frag = '';
+    if (($hash = strpos($url, '#')) !== false) {
+        $frag = substr($url, $hash);
+        $url = substr($url, 0, $hash);
+    }
+    $existing = [];
+    if (($q = strpos($url, '?')) !== false) {
+        parse_str(substr($url, $q + 1), $existing);
+        $url = substr($url, 0, $q);
+    }
+    $merged = array_merge($existing, $params);
+    return $url . (empty($merged) ? '' : '?' . http_build_query($merged)) . $frag;
 }
 
 // Options functions
@@ -653,6 +685,10 @@ class PeanutTestHelper {
         return $request;
     }
 }
+
+// Load standalone plugin helpers (HMAC download-token functions live outside any
+// class; the production code calls them as globals, so load them in isolation).
+require_once PEANUT_LICENSE_SERVER_PATH . 'includes/download-token-functions.php';
 
 // Load plugin classes
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-manager.php';

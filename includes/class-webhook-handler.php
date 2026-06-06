@@ -208,24 +208,26 @@ class Peanut_Webhook_Handler {
         $tier = $product->get_meta(self::TIER_META_KEY);
 
         if (!$tier || !isset(Peanut_License_Manager::TIERS[$tier])) {
-            // Check by SKU
+            // Check by SKU. Match whole words only: a bare strpos() for 'pro'
+            // false-matches the substring inside "product", so any SKU/name
+            // containing "product" (extremely common) would be mis-tiered as Pro.
             $sku = strtolower($product->get_sku() ?? '');
             if (!empty($sku)) {
-                if (strpos($sku, 'agency') !== false) {
+                if (preg_match('/\bagency\b/', $sku)) {
                     return 'agency';
                 }
-                if (strpos($sku, 'pro') !== false) {
+                if (preg_match('/\bpro\b/', $sku)) {
                     return 'pro';
                 }
             }
 
-            // Check by product name
+            // Check by product name (whole words only, same reasoning as above).
             $name = strtolower($product->get_name() ?? '');
             if (!empty($name)) {
-                if (strpos($name, 'agency') !== false) {
+                if (preg_match('/\bagency\b/', $name)) {
                     return 'agency';
                 }
-                if (strpos($name, 'pro') !== false) {
+                if (preg_match('/\bpro\b/', $name)) {
                     return 'pro';
                 }
             }
