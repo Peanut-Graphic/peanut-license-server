@@ -163,16 +163,25 @@ class Peanut_Security_Features {
             // Wildcard subdomain (e.g., *.example.com)
             if (strpos($allowed, '*.') === 0) {
                 $base_domain = substr($allowed, 2);
-                if ($domain === $base_domain || substr($domain, -strlen('.' . $base_domain)) === '.' . $base_domain) {
+                $suffix = '.' . $base_domain;
+                $suffix_len = strlen($suffix);
+                // Non-negative offset: only a suffix match when $domain is at least as long
+                // as $suffix; substr() from a non-negative offset never leaks the whole string.
+                if ($domain === $base_domain
+                    || (strlen($domain) >= $suffix_len && substr($domain, strlen($domain) - $suffix_len) === $suffix)) {
                     return true;
                 }
             }
 
             // Check if domain ends with allowed (for subdomain matching)
-            if (substr($domain, -strlen($allowed)) === $allowed) {
+            $allowed_len = strlen($allowed);
+            // Non-negative offset suffix match (avoids substr($s, -$n) leaking when $n == 0).
+            if ($allowed_len > 0
+                && strlen($domain) >= $allowed_len
+                && substr($domain, strlen($domain) - $allowed_len) === $allowed) {
                 // Make sure it's actually a subdomain, not just a partial match
-                $prefix = substr($domain, 0, -strlen($allowed));
-                if (empty($prefix) || substr($prefix, -1) === '.') {
+                $prefix = substr($domain, 0, strlen($domain) - $allowed_len);
+                if ($prefix === '' || substr($prefix, -1) === '.') {
                     return true;
                 }
             }
