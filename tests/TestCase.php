@@ -1,6 +1,19 @@
 <?php
 /**
- * Base Test Case for Peanut License Server
+ * Base Test Case for the Integration suite.
+ *
+ * Runs on the self-contained mock-WordPress bootstrap (tests/phpunit/bootstrap.php),
+ * the same one the gated Unit suite uses. That bootstrap defines the WordPress
+ * functions the plugin calls as *real* global functions backed by in-memory
+ * globals ($_mock_options, $_mock_transients, ...), plus a $wpdb mock. So this
+ * base needs no Brain Monkey and no real WP test library — it just resets that
+ * shared mock state between tests for isolation.
+ *
+ * (Historically this extended a Brain Monkey setup whose stubs lived in the old
+ * tests/bootstrap.php. When the testing scrub switched the active bootstrap to
+ * tests/phpunit/bootstrap.php, that stub function was no longer loaded and every
+ * Integration test errored in setUp. This base re-homes the suite on the new
+ * mock world.)
  *
  * @package Peanut_License_Server\Tests
  */
@@ -8,81 +21,67 @@
 namespace Peanut\LicenseServer\Tests;
 
 use PHPUnit\Framework\TestCase as PHPUnitTestCase;
-use Brain\Monkey;
 
 abstract class TestCase extends PHPUnitTestCase {
 
     /**
-     * Set up test environment
+     * Reset the shared mock-WordPress state before each test.
      */
     protected function setUp(): void {
         parent::setUp();
-        Monkey\setUp();
-
-        // Reset global test state
-        global $test_options, $test_transients, $test_user_capabilities, $test_user_logged_in;
-        $test_options = [];
-        $test_transients = [];
-        $test_user_capabilities = ['manage_options' => true];
-        $test_user_logged_in = true;
-
-        // Register WordPress function mocks
-        peanut_mock_wordpress_functions();
+        $this->resetMockState();
     }
 
     /**
-     * Tear down test environment
+     * Reset the shared mock-WordPress state after each test, so a test can never
+     * leak options/transients into the next one.
      */
     protected function tearDown(): void {
-        Monkey\tearDown();
+        $this->resetMockState();
         parent::tearDown();
     }
 
     /**
-     * Set a test option
+     * Clear every in-memory store the mock bootstrap exposes.
      */
-    protected function setOption(string $key, mixed $value): void {
-        global $test_options;
-        $test_options[$key] = $value;
+    private function resetMockState(): void {
+        global $_mock_options, $_mock_transients, $_mock_emails, $_mock_actions, $_mock_filters;
+        $_mock_options    = [];
+        $_mock_transients = [];
+        $_mock_emails     = [];
+        $_mock_actions    = [];
+        $_mock_filters    = [];
     }
 
     /**
-     * Set a test transient
+     * Set a mock option (writes the store get_option() reads).
+     */
+    protected function setOption(string $key, mixed $value): void {
+        global $_mock_options;
+        $_mock_options[$key] = $value;
+    }
+
+    /**
+     * Set a mock transient (matches the {value, expires} shape the bootstrap's
+     * get_transient() expects).
      */
     protected function setTransient(string $key, mixed $value, int $expiration = 0): void {
-        global $test_transients;
-        $test_transients[$key] = [
-            'value' => $value,
-            'expires' => $expiration > 0 ? time() + $expiration : 0,
+        global $_mock_transients;
+        $_mock_transients[$key] = [
+            'value'   => $value,
+            'expires' => time() + ($expiration > 0 ? $expiration : 0),
         ];
     }
 
     /**
-     * Get a test transient
+     * Read a mock transient's value (false if unset or expired).
      */
     protected function getTransient(string $key): mixed {
-        global $test_transients;
-        return $test_transients[$key]['value'] ?? false;
+        return get_transient($key);
     }
 
     /**
-     * Set user capabilities
-     */
-    protected function setUserCapability(string $capability, bool $can): void {
-        global $test_user_capabilities;
-        $test_user_capabilities[$capability] = $can;
-    }
-
-    /**
-     * Set user logged in state
-     */
-    protected function setUserLoggedIn(bool $logged_in): void {
-        global $test_user_logged_in;
-        $test_user_logged_in = $logged_in;
-    }
-
-    /**
-     * Generate a valid license key format
+     * Generate a license key in the plugin's XXXX-XXXX-XXXX-XXXX format.
      */
     protected function generateLicenseKey(): string {
         $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';

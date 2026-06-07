@@ -11,7 +11,6 @@
 namespace Peanut\LicenseServer\Tests\Integration;
 
 use Peanut\LicenseServer\Tests\TestCase;
-use Brain\Monkey\Functions;
 
 /**
  * @covers Peanut_API_Endpoints
