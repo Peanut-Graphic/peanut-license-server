@@ -35,6 +35,13 @@
         <testsuite name="Integration">
             <directory>tests/Integration</directory>
         </testsuite>
+        <!-- Property suite (net 6): seeded-deterministic invariant tests over
+             PURE PHP helpers (download-token HMAC, license-key sanitizer/
+             validator, product registry). Runs on the same self-contained
+             mock-WordPress bootstrap — no DB, no real WP. Hard gate in CI. -->
+        <testsuite name="Property">
+            <directory>tests/Property</directory>
+        </testsuite>
     </testsuites>
 
     <!-- Coverage source (replaces the removed <whitelist>). -->

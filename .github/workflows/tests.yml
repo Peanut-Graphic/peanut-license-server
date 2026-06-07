@@ -10,7 +10,24 @@ on:
   pull_request:
 
 jobs:
+  # Net 2 (security): dependency vulnerability audit. Non-blocking for now
+  # (|| true) so a freshly-disclosed advisory in a transitive dep can't wedge
+  # the gate; ratchet to blocking once the dep tree is clean and watched.
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: composer
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+      - name: Dependency audit (composer audit)
+        run: composer audit || true
+
   php-tests:
+    needs: security
     runs-on: ubuntu-latest
     env:
       # Coverage floor for the gated Unit suite (tests/phpunit/unit, ~202
@@ -46,6 +63,12 @@ jobs:
       # mock it or mark it skipped rather than reintroducing continue-on-error.
       - name: Integration tests
         run: vendor/bin/phpunit --testsuite=Integration
+
+      # Net 6 (property): seeded-deterministic invariant tests over pure PHP
+      # helpers (download-token HMAC, license-key sanitizer/validator, product
+      # registry). Same self-contained mock-WP bootstrap, no DB. Hard gate.
+      - name: Property tests (net 6 — pure invariants, no DB)
+        run: vendor/bin/phpunit --testsuite=Property
 
       - name: Upload coverage artifact
         if: always()
