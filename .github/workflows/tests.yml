@@ -40,8 +40,11 @@ jobs:
       - name: Coverage gate
         run: php "${{ github.workspace }}/coverage-gate.php" coverage/clover.xml "$MIN_COVERAGE"
 
-      - name: Integration tests (non-blocking until infra wired)
-        continue-on-error: true
+      # Integration suite runs on the same self-contained mock-WordPress
+      # bootstrap as the Unit suite (no DB, no real WP test library), so it is a
+      # hard gate. If a future Integration test genuinely needs external infra,
+      # mock it or mark it skipped rather than reintroducing continue-on-error.
+      - name: Integration tests
         run: vendor/bin/phpunit --testsuite=Integration
 
       - name: Upload coverage artifact

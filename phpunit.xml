@@ -15,9 +15,11 @@
   (An older, parallel tests/Unit tree exists from an earlier pass; it is no
   longer wired into a suite. tests/phpunit/unit is the canonical unit suite.)
 
-  The "Integration" suite (tests/Integration) needs the real WP test library and
-  is intentionally non-blocking in CI (continue-on-error) until that infra is
-  wired. See DOCUMENTATION/testing-standard/ for the shared standard.
+  The "Integration" suite (tests/Integration) runs on the SAME self-contained
+  mock-WordPress bootstrap — it exercises the REST request shape and the license
+  activation/deactivation lifecycle with in-memory mocks, no database or real WP
+  test library. It is a hard gate in CI alongside the Unit suite.
+  See DOCUMENTATION/testing-standard/ for the shared standard.
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
