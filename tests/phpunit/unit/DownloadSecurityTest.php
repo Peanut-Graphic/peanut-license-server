@@ -1,17 +1,24 @@
 <?php
 /**
- * Tests for Download Security (HMAC Token Authentication)
+ * Download Security Unit Tests (HMAC Token Authentication)
  *
- * Tests the signed download URL system that prevents unauthorized
- * file downloads and enumeration attacks.
+ * Tests the signed download URL system that prevents unauthorized file
+ * downloads and enumeration attacks. The token helpers live outside any class
+ * (includes/download-token-functions.php) and are loaded by the mock-WordPress
+ * bootstrap, so these run with no DB or real WP.
  *
- * @package Peanut_License_Server\Tests
+ * @package Peanut_License_Server
  */
 
-namespace Peanut\LicenseServer\Tests\Unit;
+declare(strict_types=1);
 
-use Peanut\LicenseServer\Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
+/**
+ * @covers ::peanut_generate_download_token
+ * @covers ::peanut_verify_download_token
+ * @covers ::peanut_get_download_secret
+ */
 class DownloadSecurityTest extends TestCase {
 
     /**

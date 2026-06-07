@@ -1,32 +1,58 @@
 <?php
 /**
- * Tests for API Security (Permission Callbacks and Auth Bypass Prevention)
+ * API Security Unit Tests (Permission Callbacks and Auth Bypass Prevention)
  *
- * Tests the API security system including IP blocking, suspicious activity
- * tracking, and permission callbacks.
+ * Tests IP blocking, suspicious-activity tracking, permission callbacks, and
+ * HMAC request-signature validation. Runs on the self-contained mock-WordPress
+ * bootstrap (no DB, no real WP): transients/options are in-memory and auth state
+ * is controlled via PeanutTestHelper::setUserCan()/setUserLoggedIn().
  *
- * @package Peanut_License_Server\Tests
+ * @package Peanut_License_Server
  */
 
-namespace Peanut\LicenseServer\Tests\Unit;
+declare(strict_types=1);
 
-use Peanut\LicenseServer\Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
+/**
+ * @covers Peanut_API_Security
+ */
 class ApiSecurityTest extends TestCase {
+
+    /**
+     * Reset all shared mock state so blocks, activity counts, and auth state
+     * never leak between tests.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        $this->resetSecurityState();
+    }
+
+    protected function tearDown(): void {
+        $this->resetSecurityState();
+        parent::tearDown();
+    }
+
+    private function resetSecurityState(): void {
+        PeanutTestHelper::clearTransients();
+        PeanutTestHelper::clearOptions();
+        PeanutTestHelper::resetUser();
+        Peanut_API_Security::clear_suspicious_activity();
+    }
 
     /**
      * Test IP blocking works correctly
      */
     public function test_ip_blocking(): void {
         $this->assertFalse(
-            \Peanut_API_Security::is_ip_blocked(),
+            Peanut_API_Security::is_ip_blocked(),
             'IP should not be blocked initially'
         );
 
-        \Peanut_API_Security::block_ip();
+        Peanut_API_Security::block_ip();
 
         $this->assertTrue(
-            \Peanut_API_Security::is_ip_blocked(),
+            Peanut_API_Security::is_ip_blocked(),
             'IP should be blocked after block_ip()'
         );
     }
@@ -37,12 +63,12 @@ class ApiSecurityTest extends TestCase {
     public function test_suspicious_activity_tracking(): void {
         // Record multiple suspicious activities
         for ($i = 0; $i < 5; $i++) {
-            \Peanut_API_Security::record_suspicious_activity('test_activity');
+            Peanut_API_Security::record_suspicious_activity('test_activity');
         }
 
         // Should not be blocked yet (threshold is 10)
         $this->assertFalse(
-            \Peanut_API_Security::is_ip_blocked(),
+            Peanut_API_Security::is_ip_blocked(),
             'IP should not be blocked before threshold'
         );
     }
@@ -52,15 +78,15 @@ class ApiSecurityTest extends TestCase {
      */
     public function test_auto_block_after_threshold(): void {
         // Clear any previous state
-        \Peanut_API_Security::clear_suspicious_activity();
+        Peanut_API_Security::clear_suspicious_activity();
 
         // Record enough activities to trigger blocking
         for ($i = 0; $i < 10; $i++) {
-            \Peanut_API_Security::record_suspicious_activity('threshold_test');
+            Peanut_API_Security::record_suspicious_activity('threshold_test');
         }
 
         $this->assertTrue(
-            \Peanut_API_Security::is_ip_blocked(),
+            Peanut_API_Security::is_ip_blocked(),
             'IP should be auto-blocked after reaching threshold'
         );
     }
@@ -70,7 +96,7 @@ class ApiSecurityTest extends TestCase {
      */
     public function test_public_endpoint_allows_valid_request(): void {
         // Clear any blocks
-        \Peanut_API_Security::clear_suspicious_activity();
+        Peanut_API_Security::clear_suspicious_activity();
 
         // Create mock request
         $request = $this->createMockRequest([
@@ -78,7 +104,7 @@ class ApiSecurityTest extends TestCase {
             'site_url' => 'https://example.com',
         ]);
 
-        $result = \Peanut_API_Security::permission_public_license($request);
+        $result = Peanut_API_Security::permission_public_license($request);
 
         $this->assertTrue($result, 'Valid public request should be allowed');
     }
@@ -87,15 +113,15 @@ class ApiSecurityTest extends TestCase {
      * Test public endpoint rejects blocked IP
      */
     public function test_public_endpoint_rejects_blocked_ip(): void {
-        \Peanut_API_Security::block_ip();
+        Peanut_API_Security::block_ip();
 
         $request = $this->createMockRequest([
             'license_key' => 'ABCD-1234-EFGH-5678',
         ]);
 
-        $result = \Peanut_API_Security::permission_public_license($request);
+        $result = Peanut_API_Security::permission_public_license($request);
 
-        $this->assertInstanceOf(\WP_Error::class, $result);
+        $this->assertInstanceOf(WP_Error::class, $result);
         $this->assertEquals('rest_forbidden', $result->get_error_code());
     }
 
@@ -103,15 +129,15 @@ class ApiSecurityTest extends TestCase {
      * Test invalid license format is rejected
      */
     public function test_invalid_license_format_rejected(): void {
-        \Peanut_API_Security::clear_suspicious_activity();
+        Peanut_API_Security::clear_suspicious_activity();
 
         $request = $this->createMockRequest([
             'license_key' => 'invalid-license',
         ]);
 
-        $result = \Peanut_API_Security::permission_public_license($request);
+        $result = Peanut_API_Security::permission_public_license($request);
 
-        $this->assertInstanceOf(\WP_Error::class, $result);
+        $this->assertInstanceOf(WP_Error::class, $result);
         $this->assertEquals('rest_invalid_param', $result->get_error_code());
     }
 
@@ -119,16 +145,16 @@ class ApiSecurityTest extends TestCase {
      * Test invalid site URL is rejected
      */
     public function test_invalid_site_url_rejected(): void {
-        \Peanut_API_Security::clear_suspicious_activity();
+        Peanut_API_Security::clear_suspicious_activity();
 
         $request = $this->createMockRequest([
             'license_key' => 'ABCD-1234-EFGH-5678',
             'site_url' => 'not-a-valid-url',
         ]);
 
-        $result = \Peanut_API_Security::permission_public_license($request);
+        $result = Peanut_API_Security::permission_public_license($request);
 
-        $this->assertInstanceOf(\WP_Error::class, $result);
+        $this->assertInstanceOf(WP_Error::class, $result);
         $this->assertEquals('rest_invalid_param', $result->get_error_code());
     }
 
@@ -136,14 +162,14 @@ class ApiSecurityTest extends TestCase {
      * Test admin permission requires authentication
      */
     public function test_admin_permission_requires_auth(): void {
-        $this->setUserLoggedIn(false);
-        $this->setUserCapability('manage_options', false);
+        PeanutTestHelper::setUserLoggedIn(false);
+        PeanutTestHelper::setUserCan(false);
 
         $request = $this->createMockRequest([]);
 
-        $result = \Peanut_API_Security::permission_admin($request);
+        $result = Peanut_API_Security::permission_admin($request);
 
-        $this->assertInstanceOf(\WP_Error::class, $result);
+        $this->assertInstanceOf(WP_Error::class, $result);
         $this->assertEquals('rest_forbidden', $result->get_error_code());
     }
 
@@ -151,12 +177,12 @@ class ApiSecurityTest extends TestCase {
      * Test admin permission allows administrators
      */
     public function test_admin_permission_allows_admins(): void {
-        $this->setUserLoggedIn(true);
-        $this->setUserCapability('manage_options', true);
+        PeanutTestHelper::setUserLoggedIn(true);
+        PeanutTestHelper::setUserCan(true);
 
         $request = $this->createMockRequest([]);
 
-        $result = \Peanut_API_Security::permission_admin($request);
+        $result = Peanut_API_Security::permission_admin($request);
 
         $this->assertTrue($result, 'Admin should be able to access admin endpoints');
     }
@@ -176,7 +202,7 @@ class ApiSecurityTest extends TestCase {
             'X-Peanut-Timestamp' => $timestamp,
         ], $body);
 
-        $is_valid = \Peanut_API_Security::validate_signature($request, $secret);
+        $is_valid = Peanut_API_Security::validate_signature($request, $secret);
 
         $this->assertTrue($is_valid, 'Valid signature should pass');
     }
@@ -196,7 +222,7 @@ class ApiSecurityTest extends TestCase {
             'X-Peanut-Timestamp' => $old_timestamp,
         ], $body);
 
-        $is_valid = \Peanut_API_Security::validate_signature($request, $secret);
+        $is_valid = Peanut_API_Security::validate_signature($request, $secret);
 
         $this->assertFalse($is_valid, 'Expired timestamp should fail');
     }
@@ -217,7 +243,7 @@ class ApiSecurityTest extends TestCase {
             'X-Peanut-Timestamp' => $timestamp,
         ], $body);
 
-        $is_valid = \Peanut_API_Security::validate_signature($request, $wrong_secret);
+        $is_valid = Peanut_API_Security::validate_signature($request, $wrong_secret);
 
         $this->assertFalse($is_valid, 'Wrong secret should fail validation');
     }
@@ -229,7 +255,7 @@ class ApiSecurityTest extends TestCase {
         $secret = 'test_secret';
         $request = $this->createMockRequest([]);
 
-        $is_valid = \Peanut_API_Security::validate_signature($request, $secret);
+        $is_valid = Peanut_API_Security::validate_signature($request, $secret);
 
         $this->assertFalse($is_valid, 'Missing signature should fail');
     }
@@ -238,11 +264,11 @@ class ApiSecurityTest extends TestCase {
      * Test readonly permission allows when not blocked
      */
     public function test_readonly_permission_allows_when_not_blocked(): void {
-        \Peanut_API_Security::clear_suspicious_activity();
+        Peanut_API_Security::clear_suspicious_activity();
 
         $request = $this->createMockRequest([]);
 
-        $result = \Peanut_API_Security::permission_public_readonly($request);
+        $result = Peanut_API_Security::permission_public_readonly($request);
 
         $this->assertTrue($result, 'Readonly endpoint should be accessible');
     }
@@ -251,7 +277,7 @@ class ApiSecurityTest extends TestCase {
      * Test security statistics returns expected format
      */
     public function test_security_statistics_format(): void {
-        $stats = \Peanut_API_Security::get_statistics();
+        $stats = Peanut_API_Security::get_statistics();
 
         $this->assertIsArray($stats);
         $this->assertArrayHasKey('blocked_ips', $stats);
@@ -259,30 +285,31 @@ class ApiSecurityTest extends TestCase {
     }
 
     /**
-     * Helper to create a mock WP_REST_Request
+     * Helper to create a mock WP_REST_Request that also exposes get_header()
+     * and get_body() (used by signature validation).
      */
-    private function createMockRequest(array $params, array $headers = [], string $body = ''): \WP_REST_Request {
-        return new class($params, $headers, $body) extends \WP_REST_Request {
-            private array $params;
-            private array $headers;
-            private string $body;
+    private function createMockRequest(array $params, array $headers = [], string $body = ''): WP_REST_Request {
+        return new class($params, $headers, $body) extends WP_REST_Request {
+            private array $mock_params;
+            private array $mock_headers;
+            private string $mock_body;
 
             public function __construct(array $params, array $headers, string $body) {
-                $this->params = $params;
-                $this->headers = $headers;
-                $this->body = $body;
+                $this->mock_params = $params;
+                $this->mock_headers = $headers;
+                $this->mock_body = $body;
             }
 
             public function get_param(string $key) {
-                return $this->params[$key] ?? null;
+                return $this->mock_params[$key] ?? null;
             }
 
             public function get_header(string $key): ?string {
-                return $this->headers[$key] ?? null;
+                return isset($this->mock_headers[$key]) ? (string) $this->mock_headers[$key] : null;
             }
 
             public function get_body(): string {
-                return $this->body;
+                return $this->mock_body;
             }
 
             public function get_route(): string {
