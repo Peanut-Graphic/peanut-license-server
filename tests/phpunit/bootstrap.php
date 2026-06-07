@@ -28,6 +28,13 @@ class MockWPDB {
     public ?string $last_error = null;
     public int $insert_id = 0;
 
+    // Core table-name properties the real $wpdb exposes (prefix + table). Code
+    // that interpolates "{$wpdb->options}" into a query needs these to exist.
+    public string $options = 'wp_options';
+    public string $posts = 'wp_posts';
+    public string $users = 'wp_users';
+    public string $usermeta = 'wp_usermeta';
+
     private array $tables = [];
     private array $data = [];
 
@@ -459,16 +466,51 @@ function get_bloginfo(string $show = ''): string {
 }
 
 // User functions
+//
+// Capability and login state are controllable so permission-callback tests can
+// exercise the unauthorized path. They default to "allowed" (an admin who can
+// manage_options), which preserves the behaviour every existing test relied on
+// before these were made adjustable. Use PeanutTestHelper::setUserCan() /
+// ::setUserLoggedIn() to flip them, and reset between tests.
+$_mock_user_can       = true;
+$_mock_user_logged_in = true;
+
 function get_current_user_id(): int {
-    return 1;
+    global $_mock_user_logged_in;
+    return $_mock_user_logged_in ? 1 : 0;
 }
 
 function current_user_can(string $capability): bool {
-    return true;
+    global $_mock_user_can;
+    return $_mock_user_can ?? true;
 }
 
 function is_user_logged_in(): bool {
-    return true;
+    global $_mock_user_logged_in;
+    return $_mock_user_logged_in ?? true;
+}
+
+function wp_unslash($value) {
+    return is_string($value) ? stripslashes($value) : $value;
+}
+
+// HTTP API — unit tests make no real network requests, so these always report
+// failure. Callers (e.g. the ML abuse detector) must degrade gracefully, and
+// these stubs let us exercise that real degradation path instead of mocking it.
+function wp_remote_get($url = '', array $args = []) {
+    return new WP_Error('http_request_failed', 'No HTTP requests in unit tests.');
+}
+
+function wp_remote_post($url = '', array $args = []) {
+    return new WP_Error('http_request_failed', 'No HTTP requests in unit tests.');
+}
+
+function wp_remote_retrieve_response_code($response): int {
+    return 0;
+}
+
+function wp_remote_retrieve_body($response): string {
+    return '';
 }
 
 // Nonce functions
@@ -621,6 +663,31 @@ class PeanutTestHelper {
     }
 
     /**
+     * Control what current_user_can() returns (default true).
+     */
+    public static function setUserCan(bool $can): void {
+        global $_mock_user_can;
+        $_mock_user_can = $can;
+    }
+
+    /**
+     * Control what is_user_logged_in()/get_current_user_id() report (default true).
+     */
+    public static function setUserLoggedIn(bool $logged_in): void {
+        global $_mock_user_logged_in;
+        $_mock_user_logged_in = $logged_in;
+    }
+
+    /**
+     * Reset auth state to the default authenticated admin.
+     */
+    public static function resetUser(): void {
+        global $_mock_user_can, $_mock_user_logged_in;
+        $_mock_user_can       = true;
+        $_mock_user_logged_in = true;
+    }
+
+    /**
      * Create a mock license object
      */
     public static function createMockLicense(array $overrides = []): object {
@@ -694,6 +761,7 @@ require_once PEANUT_LICENSE_SERVER_PATH . 'includes/download-token-functions.php
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-manager.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-validator.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-rate-limiter.php';
+require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-api-security.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-security-features.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-update-server.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-gdpr-compliance.php';
