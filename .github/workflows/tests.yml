@@ -13,14 +13,14 @@ jobs:
   php-tests:
     runs-on: ubuntu-latest
     env:
-      # Coverage floor for the gated Unit suite (tests/phpunit/unit, ~174
-      # mock-WordPress tests, no DB). Measured on CI (PHP 8.2 + pcov): 11.35%
-      # (606/5339 statements). Floor set ~5 points under that so it catches a
+      # Coverage floor for the gated Unit suite (tests/phpunit/unit, ~202
+      # mock-WordPress tests, no DB). Measured on CI (PHP 8.2 + pcov): 13.66%
+      # (729/5336 statements). Floor set ~5 points under that so it catches a
       # real regression while tolerating cross-PHP-version statement-count
       # variance. The coverage-gate step prints the exact "PASS N% (covered/total)"
       # line each run — RATCHET this up as licensing/billing tests are added,
       # toward 20, 30, ... and ultimately the original 40 goal.
-      MIN_COVERAGE: "6"
+      MIN_COVERAGE: "8"
     steps:
       - uses: actions/checkout@v4
 
