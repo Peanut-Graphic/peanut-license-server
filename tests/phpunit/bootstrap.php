@@ -351,7 +351,9 @@ function get_transient(string $transient) {
     if ($data === false) {
         return false;
     }
-    if ($data['expires'] < time()) {
+    // expires === 0 is the "never expires" sentinel (WordPress treats a 0
+    // expiration as no expiration), so only time-bounded transients expire.
+    if ($data['expires'] !== 0 && $data['expires'] < time()) {
         unset($_mock_transients[$transient]);
         return false;
     }
@@ -362,7 +364,9 @@ function set_transient(string $transient, $value, int $expiration = 0): bool {
     global $_mock_transients;
     $_mock_transients[$transient] = [
         'value' => $value,
-        'expires' => time() + $expiration,
+        // A non-positive expiration means "never expires" (sentinel 0), matching
+        // WordPress; a positive one is an absolute expiry timestamp.
+        'expires' => $expiration > 0 ? time() + $expiration : 0,
     ];
     return true;
 }

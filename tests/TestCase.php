@@ -46,11 +46,16 @@ abstract class TestCase extends PHPUnitTestCase {
      */
     private function resetMockState(): void {
         global $_mock_options, $_mock_transients, $_mock_emails, $_mock_actions, $_mock_filters;
+        global $_mock_user_can, $_mock_user_logged_in;
         $_mock_options    = [];
         $_mock_transients = [];
         $_mock_emails     = [];
         $_mock_actions    = [];
         $_mock_filters    = [];
+        // Reset auth to the default authenticated admin so a test that toggles
+        // current_user_can()/is_user_logged_in() can't leak that into the next.
+        $_mock_user_can       = true;
+        $_mock_user_logged_in = true;
     }
 
     /**
@@ -69,7 +74,8 @@ abstract class TestCase extends PHPUnitTestCase {
         global $_mock_transients;
         $_mock_transients[$key] = [
             'value'   => $value,
-            'expires' => time() + ($expiration > 0 ? $expiration : 0),
+            // 0 (or non-positive) means "never expires", matching set_transient().
+            'expires' => $expiration > 0 ? time() + $expiration : 0,
         ];
     }
 
