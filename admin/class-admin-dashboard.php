@@ -162,7 +162,7 @@ class Peanut_Admin_Dashboard {
                         'customer_name' => sanitize_text_field($_POST['bulk_name'] ?? ''),
                         'tier' => sanitize_text_field($_POST['bulk_tier'] ?? 'pro'),
                         'product_id' => 0,
-                        'expires_at' => !empty($_POST['bulk_expires']) ? sanitize_text_field($_POST['bulk_expires']) : null,
+                        'expires_at' => (isset($_POST['bulk_expires']) && $_POST['bulk_expires'] !== '') ? sanitize_text_field($_POST['bulk_expires']) : null,
                     ]);
                     break;
             }
@@ -274,7 +274,7 @@ class Peanut_Admin_Dashboard {
             $license_id = intval($_POST['license_id'] ?? 0);
             $new_email = sanitize_email($_POST['new_email'] ?? '');
             $new_name = sanitize_text_field($_POST['new_name'] ?? '');
-            $deactivate_sites = !empty($_POST['deactivate_sites']);
+            $deactivate_sites = isset($_POST['deactivate_sites']) && $_POST['deactivate_sites'] !== '';
 
             if ($license_id && !empty($new_email)) {
                 $result = Peanut_License_Manager::transfer_license($license_id, [
@@ -370,7 +370,7 @@ class Peanut_Admin_Dashboard {
         }
 
         // Send email if requested
-        if (!empty($_POST['send_email'])) {
+        if (isset($_POST['send_email']) && $_POST['send_email'] !== '') {
             Peanut_License_Manager::send_license_email($license);
         }
 
@@ -382,8 +382,8 @@ class Peanut_Admin_Dashboard {
      */
     private static function save_settings(): void {
         // Global settings
-        update_option('peanut_license_server_api_enabled', !empty($_POST['api_enabled']));
-        update_option('peanut_license_server_update_enabled', !empty($_POST['update_enabled']));
+        update_option('peanut_license_server_api_enabled', isset($_POST['api_enabled']) && $_POST['api_enabled'] !== '');
+        update_option('peanut_license_server_update_enabled', isset($_POST['update_enabled']) && $_POST['update_enabled'] !== '');
         update_option('peanut_license_server_cache_duration', intval($_POST['cache_duration'] ?? 12));
 
         // Product-specific settings
@@ -399,7 +399,7 @@ class Peanut_Admin_Dashboard {
             update_option("peanut_{$product_slug}_last_updated", date('Y-m-d'));
 
             // Handle changelog update
-            if (!empty($_POST['new_changelog'])) {
+            if (isset($_POST['new_changelog']) && $_POST['new_changelog'] !== '') {
                 $existing_changelog = get_option("peanut_{$product_slug}_changelog", '');
                 $new_changelog = "<h4>{$version}</h4>\n<ul>\n";
                 foreach (explode("\n", sanitize_textarea_field($_POST['new_changelog'])) as $line) {
@@ -615,7 +615,7 @@ class Peanut_Admin_Dashboard {
                     update_option("peanut_{$product_slug}_last_updated", date('Y-m-d'));
 
                     // Handle changelog
-                    if (!empty($_POST['changelog'])) {
+                    if (isset($_POST['changelog']) && $_POST['changelog'] !== '') {
                         $existing = get_option("peanut_{$product_slug}_changelog", '');
                         $new_changelog = "<h4>{$version}</h4>\n<ul>\n";
                         foreach (explode("\n", sanitize_textarea_field($_POST['changelog'])) as $line) {
@@ -750,7 +750,7 @@ class Peanut_Admin_Dashboard {
                         break;
 
                     case 'anonymize':
-                        $confirm = !empty($_POST['confirm_action']);
+                        $confirm = isset($_POST['confirm_action']) && $_POST['confirm_action'] !== '';
                         if (!$confirm) {
                             $message = __('Please confirm the action by checking the confirmation box.', 'peanut-license-server');
                             $message_type = 'error';
@@ -771,7 +771,7 @@ class Peanut_Admin_Dashboard {
                         break;
 
                     case 'delete':
-                        $confirm = !empty($_POST['confirm_action']);
+                        $confirm = isset($_POST['confirm_action']) && $_POST['confirm_action'] !== '';
                         if (!$confirm) {
                             $message = __('Please confirm the action by checking the confirmation box.', 'peanut-license-server');
                             $message_type = 'error';

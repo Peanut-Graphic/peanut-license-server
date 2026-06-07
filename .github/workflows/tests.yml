@@ -26,6 +26,16 @@ jobs:
       - name: Dependency audit (composer audit)
         run: composer audit || true
 
+      # Net 2 (static): CLASS-007 PHP foot-gun gate. Vendored rule lives at
+      # .peanut/static-rules/peanut-php-footguns.yml. BLOCKING (--error): any
+      # empty()/!empty() on request input (drops the string "0") or a
+      # substr($s, -$n) with a variable length (leaks the whole string when
+      # $n == 0) fails the build. The repo was swept to ZERO; keep it there.
+      - name: Install semgrep
+        run: pip install semgrep
+      - name: Semgrep — CLASS-007 foot-guns (blocking)
+        run: semgrep --config .peanut/static-rules/peanut-php-footguns.yml includes/ admin/ --error
+
   php-tests:
     needs: security
     runs-on: ubuntu-latest

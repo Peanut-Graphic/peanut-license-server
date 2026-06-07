@@ -1,0 +1,47 @@
+# Peanut static rules — PHP zero/empty coercion foot-guns (CLASS-007).
+#
+# These kill the CLASS-007 category ecosystem-wide: the bugs the property tests found in
+# PEANUT-SUITE (mask() leaked the whole secret via substr($s,-0); UTM builder dropped '0'
+# via !empty()). Run by semgrep in the static/security net. Start as WARNING (non-blocking);
+# ratchet to ERROR once each repo is clean.
+#
+# Run:        semgrep --config testing-standard/static-rules/ <repo>
+# Self-test:  semgrep --test testing-standard/static-rules/
+rules:
+  - id: peanut-negative-length-substr
+    languages: [php]
+    severity: WARNING
+    message: >-
+      substr() with a negated variable start leaks the WHOLE string when that variable is 0
+      (PHP: -0 === 0, and substr($s, 0) returns everything). Guard the count > 0 before
+      using substr($s, -$n), or compute an explicit non-negative offset. [CLASS-007]
+    metadata:
+      category: security
+      class: CLASS-007
+      cwe: "CWE-200: Exposure of Sensitive Information"
+    patterns:
+      - pattern: substr($S, -$N)
+      # Keep only non-literal lengths ($N starts with a non-digit: a variable like
+      # $visible_end or a call like strlen(...)). substr($s, -5) is fine and excluded;
+      # a variable length can be 0 at runtime and leak the whole string.
+      - metavariable-regex:
+          metavariable: $N
+          regex: '^[^0-9]'
+
+  - id: peanut-empty-coercion-on-input
+    languages: [php]
+    severity: WARNING
+    message: >-
+      empty()/!empty() treats the string "0", 0 and 0.0 as absent, silently dropping
+      legitimate zero values. For request input use isset(...) plus a strict comparison
+      (!== '') instead of empty(). [CLASS-007]
+    metadata:
+      category: correctness
+      class: CLASS-007
+    # Bare empty($_GET[..]) also matches inside !empty($_GET[..]), so these four cover
+    # both empty() and !empty() uses without double-reporting.
+    pattern-either:
+      - pattern: empty($_GET[$K])
+      - pattern: empty($_POST[$K])
+      - pattern: empty($_REQUEST[$K])
+      - pattern: empty($_COOKIE[$K])
