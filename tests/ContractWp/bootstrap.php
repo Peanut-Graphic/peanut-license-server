@@ -11,4 +11,16 @@
 
 define('PLUGIN_MAIN_FILE', dirname(__DIR__, 2) . '/peanut-license-server.php');
 
+// The WordPress test bootstrap loads the Yoast PHPUnit Polyfills via the
+// WP_TESTS_PHPUNIT_POLYFILLS_PATH *constant* (not an env var). When we run via a
+// standalone phpunit phar, Composer's autoloader isn't active, so point the WP
+// bootstrap at the composer-installed polyfills explicitly.
+if (! defined('WP_TESTS_PHPUNIT_POLYFILLS_PATH')) {
+    $polyfills = getenv('WP_TESTS_PHPUNIT_POLYFILLS_PATH')
+        ?: dirname(__DIR__, 2) . '/vendor/yoast/phpunit-polyfills';
+    if (is_dir($polyfills)) {
+        define('WP_TESTS_PHPUNIT_POLYFILLS_PATH', $polyfills);
+    }
+}
+
 require __DIR__ . '/../../.peanut/wp-harness/bootstrap-wp.php';
