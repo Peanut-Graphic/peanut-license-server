@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Real-WordPress REST contract suite (net 7).
+
+  Boots a real WordPress via the shared wp-harness and dispatches real REST
+  routes — NO mocks. Runs under PHPUnit 9 (the WordPress test library does not
+  support PHPUnit 10), separate from the repo's mock-based PHPUnit 10 suites.
+-->
+<phpunit
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.6/phpunit.xsd"
+    bootstrap="tests/ContractWp/bootstrap.php"
+    colors="true"
+    beStrictAboutTestsThatDoNotTestAnything="true"
+    convertErrorsToExceptions="true"
+    convertNoticesToExceptions="true"
+    convertWarningsToExceptions="true"
+>
+    <testsuites>
+        <testsuite name="contract-wp">
+            <directory suffix="Test.php">tests/ContractWp</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>
