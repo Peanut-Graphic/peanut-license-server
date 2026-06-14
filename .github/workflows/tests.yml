@@ -14,7 +14,7 @@ jobs:
   # (|| true) so a freshly-disclosed advisory in a transitive dep can't wedge
   # the gate; ratchet to blocking once the dep tree is clean and watched.
   security:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, peanut-ci]
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
@@ -38,7 +38,7 @@ jobs:
 
   php-tests:
     needs: security
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, peanut-ci]
     env:
       # Coverage floor for the gated Unit suite (tests/phpunit/unit, ~202
       # mock-WordPress tests, no DB). Measured on CI (PHP 8.2 + pcov): 13.66%
