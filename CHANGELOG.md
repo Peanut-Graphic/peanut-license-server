@@ -5,6 +5,35 @@ All notable changes to Peanut License Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-06-16
+
+### Fixed
+- **Migration trigger now fires for every request type, not just wp-admin.**
+  The DB migration check was hooked on `admin_init`, which only runs when a
+  logged-in admin loads wp-admin. On an upgraded, API-only/headless server the
+  REST update-check/activation/site-health endpoints, admin-ajax downloads, and
+  WP-Cron never triggered it, and auto-update doesn't re-run the activation
+  hook — so new code could write columns the DB lacked. The check now runs on
+  `plugins_loaded` behind a fast version gate, with peanut-connect-style drift
+  detection (an option that claims "current" can no longer trap a broken schema)
+  and an idempotent `create_tables()`/dbDelta safety-net covering ALL tables
+  (previously only `activations` had any upgrade coverage). Cheap on the hot
+  path: a single option read plus one COUNT(*) per tracked column when current.
+- **Invalid ENUM value on the validation-logging hot path.** The validation
+  logger inserted `status = 'unknown'` into an `ENUM('success','failed')`
+  column, which errors under MySQL STRICT mode on every non-success validation.
+  The value is now clamped to a valid member (anything that isn't an explicit
+  success is recorded as `failed`).
+- **Unbounded daily subscription sync.** The scheduled fleet sync selected
+  every subscription and looped over all of them with no limit. It now processes
+  a capped chunk per run (`SYNC_CHUNK_SIZE`), advancing a persisted cursor
+  across runs and wrapping at the end, so it scales as the fleet grows.
+
+### Added
+- Schema-drift CI guard (`SchemaDriftGuardTest`): asserts that every column
+  written via `$wpdb->insert()/->update()` to a `peanut_*` table exists in that
+  table's dbDelta schema (CREATE columns plus migration-added columns).
+
 ## [1.3.5] - 2026-06-06
 
 ### Added

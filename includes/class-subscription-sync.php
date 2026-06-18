@@ -12,6 +12,26 @@ defined('ABSPATH') || exit;
 class Peanut_Subscription_Sync {
 
     /**
+     * Max subscriptions synced per scheduled run. The daily cron walks the
+     * fleet in chunks of this size, advancing a cursor across runs, so one run
+     * never does unbounded work. Lower = gentler per run / more runs to cover
+     * the fleet; cron is daily so a large fleet still wraps within days.
+     */
+    const SYNC_CHUNK_SIZE = 100;
+
+    /** Option holding the OFFSET into the subscription list for the next run. */
+    const SYNC_CURSOR_OPTION = 'peanut_subscription_sync_cursor';
+
+    /**
+     * Test seam: when set, called instead of the real sync_subscription() so
+     * the unit suite can assert chunking/cursor behaviour without WooCommerce
+     * or network I/O. Production leaves this null.
+     *
+     * @var callable|null
+     */
+    public static $test_sync_subscription = null;
+
+    /**
      * Initialize subscription sync
      */
     public static function init(): void {
@@ -462,33 +482,70 @@ class Peanut_Subscription_Sync {
     }
 
     /**
-     * Run scheduled sync for all subscriptions
+     * Run scheduled sync for a bounded chunk of subscriptions.
+     *
+     * Previously this SELECTed every subscription_id and looped over all of
+     * them with no LIMIT — unbounded work that doesn't scale as the fleet
+     * grows. It now processes at most SYNC_CHUNK_SIZE per run, ordered
+     * deterministically, advancing a persisted cursor across runs and wrapping
+     * back to the start once the whole fleet is covered. A large fleet is fully
+     * synced over several daily runs instead of one giant pass.
      */
     public static function run_scheduled_sync(): void {
         global $wpdb;
 
-        // Get all subscription IDs with licenses
-        $subscription_ids = $wpdb->get_col(
-            "SELECT DISTINCT subscription_id FROM {$wpdb->prefix}peanut_licenses WHERE subscription_id IS NOT NULL AND subscription_id > 0"
-        );
+        $cursor = max(0, (int) get_option(self::SYNC_CURSOR_OPTION, 0));
+        $limit = self::SYNC_CHUNK_SIZE;
+
+        // Deterministic ORDER BY so OFFSET paging is stable across runs.
+        $subscription_ids = $wpdb->get_col($wpdb->prepare(
+            "SELECT DISTINCT subscription_id FROM {$wpdb->prefix}peanut_licenses
+             WHERE subscription_id IS NOT NULL AND subscription_id > 0
+             ORDER BY subscription_id ASC
+             LIMIT %d OFFSET %d",
+            $limit,
+            $cursor
+        ));
 
         $synced = 0;
         $errors = 0;
 
         foreach ($subscription_ids as $subscription_id) {
-            $result = self::sync_subscription($subscription_id);
-            if ($result['success']) {
-                $synced += $result['synced'];
+            $result = self::dispatch_sync((int) $subscription_id);
+            if (!empty($result['success'])) {
+                $synced += (int) ($result['synced'] ?? 0);
             } else {
                 $errors++;
             }
         }
 
+        // Advance the cursor. If this page came back short (or empty), we've
+        // reached the end of the fleet — wrap back to the start for next run.
+        $processed = count($subscription_ids);
+        $next_cursor = ($processed < $limit) ? 0 : $cursor + $processed;
+        update_option(self::SYNC_CURSOR_OPTION, $next_cursor);
+
         // Log the sync
-        Peanut_Logger::info('Subscription sync completed', [
+        Peanut_Logger::info('Subscription sync chunk completed', [
             'licenses_synced' => $synced,
             'errors' => $errors,
+            'chunk_size' => $limit,
+            'chunk_offset' => $cursor,
+            'processed' => $processed,
+            'next_offset' => $next_cursor,
         ]);
+    }
+
+    /**
+     * Invoke sync_subscription() (or the test seam).
+     *
+     * @return array{success:bool,synced?:int}
+     */
+    private static function dispatch_sync(int $subscription_id): array {
+        if (is_callable(self::$test_sync_subscription)) {
+            return call_user_func(self::$test_sync_subscription, $subscription_id);
+        }
+        return self::sync_subscription($subscription_id);
     }
 
     /**
