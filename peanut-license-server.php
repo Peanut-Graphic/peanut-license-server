@@ -3,7 +3,7 @@
  * Plugin Name: Peanut License Server
  * Plugin URI: https://peanutgraphic.com/peanut-suite
  * Description: License management, validation, and update server for Peanut Suite WordPress plugin.
- * Version: 1.3.5
+ * Version: 1.4.0
  * Author: Peanut Graphic
  * Author URI: https://peanutgraphic.com
  * License: GPL-2.0-or-later
@@ -17,7 +17,7 @@
 defined('ABSPATH') || exit;
 
 // Plugin constants
-define('PEANUT_LICENSE_SERVER_VERSION', '1.3.5');
+define('PEANUT_LICENSE_SERVER_VERSION', '1.4.0');
 define('PEANUT_LICENSE_SERVER_PATH', plugin_dir_path(__FILE__));
 define('PEANUT_LICENSE_SERVER_URL', plugin_dir_url(__FILE__));
 define('PEANUT_LICENSE_SERVER_BASENAME', plugin_basename(__FILE__));
@@ -179,6 +179,10 @@ final class Peanut_License_Server {
         // Logger (load first so other classes can use it)
         require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-logger.php';
 
+        // Schema self-heal (always-on migration trigger). Load before anything
+        // that writes to the custom tables so the hook is registered early.
+        require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-db-migrations.php';
+
         // Core classes
         require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-manager.php';
         require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-validator.php';
@@ -244,8 +248,10 @@ final class Peanut_License_Server {
         register_activation_hook(__FILE__, [$this, 'activate']);
         register_deactivation_hook(__FILE__, [$this, 'deactivate']);
 
-        // Check for DB migrations
-        add_action('admin_init', [$this, 'check_db_migrations']);
+        // Check for DB migrations on an always-on early hook (plugins_loaded),
+        // so REST/AJAX/cron requests heal the schema too — not only wp-admin
+        // page loads. Cheap when already current (single option read).
+        Peanut_License_DB_Migrations::init();
 
         // Init
         add_action('init', [$this, 'init']);
@@ -399,7 +405,7 @@ final class Peanut_License_Server {
         Peanut_Affiliate_System::create_tables();
 
         // Store DB version
-        update_option('peanut_license_server_db_version', '1.5.0');
+        update_option('peanut_license_server_db_version', Peanut_License_DB_Migrations::DB_VERSION);
     }
 
     /**
@@ -487,50 +493,25 @@ final class Peanut_License_Server {
     }
 
     /**
-     * Check and run database migrations
+     * Check and run database migrations.
+     *
+     * The migration ladder + drift self-heal now lives in
+     * Peanut_License_DB_Migrations (hooked on plugins_loaded so it fires for
+     * REST/AJAX/cron, not only wp-admin). This thin wrapper is kept for
+     * backward compatibility with any external caller / WP-CLI usage.
      */
     public function check_db_migrations(): void {
-        $current_db_version = get_option('peanut_license_server_db_version', '1.0.0');
+        Peanut_License_DB_Migrations::check_db_version();
+    }
 
-        // Migration: Add health columns to activations table (v1.4.0)
-        if (version_compare($current_db_version, '1.4.0', '<')) {
-            global $wpdb;
-            $table = $wpdb->prefix . 'peanut_activations';
-
-            // Check if health_status column exists
-            $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table} LIKE 'health_status'");
-
-            if (empty($column_exists)) {
-                $wpdb->query("ALTER TABLE {$table}
-                    ADD COLUMN wp_version VARCHAR(20) DEFAULT NULL AFTER plugin_version,
-                    ADD COLUMN php_version VARCHAR(20) DEFAULT NULL AFTER wp_version,
-                    ADD COLUMN is_multisite TINYINT(1) DEFAULT 0 AFTER php_version,
-                    ADD COLUMN active_plugins INT DEFAULT 0 AFTER is_multisite,
-                    ADD COLUMN health_status ENUM('healthy', 'warning', 'critical', 'offline') DEFAULT 'healthy' AFTER active_plugins,
-                    ADD COLUMN health_errors TEXT DEFAULT NULL AFTER health_status,
-                    ADD INDEX idx_health_status (health_status)
-                ");
-            }
-
-            update_option('peanut_license_server_db_version', '1.4.0');
-        }
-
-        // Migration: Add deactivated_at column to activations table (v1.5.0)
-        if (version_compare($current_db_version, '1.5.0', '<')) {
-            global $wpdb;
-            $table = $wpdb->prefix . 'peanut_activations';
-
-            // Check if deactivated_at column exists
-            $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table} LIKE 'deactivated_at'");
-
-            if (empty($column_exists)) {
-                $wpdb->query("ALTER TABLE {$table}
-                    ADD COLUMN deactivated_at DATETIME DEFAULT NULL AFTER last_checked
-                ");
-            }
-
-            update_option('peanut_license_server_db_version', '1.5.0');
-        }
+    /**
+     * Re-run create_tables() as an idempotent dbDelta safety net.
+     *
+     * Called by the migration self-heal so the migration logic can re-apply
+     * the full schema for ALL tables without duplicating the CREATE TABLE SQL.
+     */
+    public function ensure_tables(): void {
+        $this->create_tables();
     }
 
     /**

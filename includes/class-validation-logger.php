@@ -32,7 +32,11 @@ class Peanut_Validation_Logger {
             'ip_address' => self::get_client_ip(),
             'user_agent' => substr(sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
             'action' => sanitize_key($data['action'] ?? 'validate'),
-            'status' => sanitize_key($data['status'] ?? 'unknown'),
+            // Clamp to a valid ENUM('success','failed') member. Anything that
+            // isn't an explicit success is recorded as 'failed' — inserting a
+            // non-member value (the old 'unknown' default) errors under MySQL
+            // STRICT mode on this per-validation hot path.
+            'status' => self::clamp_status($data['status'] ?? null),
             'error_code' => sanitize_key($data['error_code'] ?? ''),
             'error_message' => sanitize_text_field($data['error_message'] ?? ''),
             'request_data' => wp_json_encode($data['request_data'] ?? []),
@@ -45,6 +49,18 @@ class Peanut_Validation_Logger {
         );
 
         return $wpdb->insert_id;
+    }
+
+    /**
+     * Clamp an arbitrary status to a valid ENUM('success','failed') member.
+     *
+     * Only an explicit 'success' is a success; everything else (including the
+     * legacy 'unknown' default and any bogus value) is recorded as 'failed'.
+     *
+     * @param mixed $status Raw status from the caller.
+     */
+    private static function clamp_status($status): string {
+        return sanitize_key((string) ($status ?? '')) === 'success' ? 'success' : 'failed';
     }
 
     /**

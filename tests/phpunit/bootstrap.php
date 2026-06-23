@@ -27,6 +27,7 @@ class MockWPDB {
     public string $prefix = 'wp_';
     public ?string $last_error = null;
     public int $insert_id = 0;
+    public string $dbname = 'wp_test';
 
     // Core table-name properties the real $wpdb exposes (prefix + table). Code
     // that interpolates "{$wpdb->options}" into a query needs these to exist.
@@ -762,6 +763,9 @@ class PeanutTestHelper {
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/download-token-functions.php';
 
 // Load plugin classes
+require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-logger.php';
+require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-db-migrations.php';
+require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-subscription-sync.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-manager.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-validator.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-rate-limiter.php';
