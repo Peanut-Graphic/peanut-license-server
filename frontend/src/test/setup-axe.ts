@@ -1,11 +1,7 @@
 import { expect } from 'vitest';
+import { toHaveNoViolations } from 'jest-axe';
 
-expect.extend({
-  async toHaveNoViolations() {
-    return {
-      pass: false,
-      message: () =>
-        'Accessibility matcher unavailable: install the optional jest-axe dependency before running a11y suites.',
-    };
-  },
-});
+// Real jest-axe matcher (previously a stub that always failed because jest-axe
+// wasn't installed — which, combined with the missing @testing-library/dom peer
+// dep, made all 21 frontend suites fail to load).
+expect.extend(toHaveNoViolations);
