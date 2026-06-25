@@ -14,7 +14,7 @@ on:
 
 jobs:
   wp-contract:
-    runs-on: [self-hosted, linux, peanut-ci]
+    runs-on: ubuntu-latest
     services:
       mysql:
         image: mysql:8
