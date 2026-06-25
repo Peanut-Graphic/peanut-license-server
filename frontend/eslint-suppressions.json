@@ -42,10 +42,5 @@
     "jsx-a11y/label-has-associated-control": {
       "count": 1
     }
-  },
-  "src/test/accessibility/components.a11y.test.tsx": {
-    "jsx-a11y/role-supports-aria-props": {
-      "count": 1
-    }
   }
 }

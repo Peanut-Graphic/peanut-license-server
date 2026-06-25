@@ -1,9 +1,13 @@
+import { useId } from 'react';
+
 interface SwitchProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label?: string;
   description?: string;
   disabled?: boolean;
+  /** Accessible name when no visible `label` is rendered. */
+  'aria-label'?: string;
 }
 
 export default function Switch({
@@ -12,13 +16,17 @@ export default function Switch({
   label,
   description,
   disabled,
+  'aria-label': ariaLabel,
 }: SwitchProps) {
+  const labelId = useId();
   return (
     <label className={`flex items-start gap-3 ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-labelledby={label ? labelId : undefined}
+        aria-label={!label ? ariaLabel : undefined}
         disabled={disabled}
         onClick={() => !disabled && onChange(!checked)}
         className={`
@@ -39,7 +47,7 @@ export default function Switch({
       {(label || description) && (
         <div className="flex-1">
           {label && (
-            <span className="text-sm font-medium text-slate-900">{label}</span>
+            <span id={labelId} className="text-sm font-medium text-slate-900">{label}</span>
           )}
           {description && (
             <p className="text-sm text-slate-500">{description}</p>

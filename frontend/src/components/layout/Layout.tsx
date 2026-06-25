@@ -40,7 +40,7 @@ export function Layout({ title, description, action, children }: LayoutProps) {
         <div className="px-4 py-4 sm:px-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
+              {title && <h1 className="text-xl font-semibold text-slate-900">{title}</h1>}
               {description && (
                 <p className="text-sm text-slate-500 mt-0.5">{description}</p>
               )}
@@ -77,3 +77,5 @@ export function Layout({ title, description, action, children }: LayoutProps) {
     </div>
   );
 }
+
+export default Layout;
