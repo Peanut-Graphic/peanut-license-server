@@ -127,13 +127,22 @@ class Peanut_API_Endpoints {
             ],
         ]);
 
-        // Plugin download
+        // Plugin download.
+        // Egress is DEFAULT-DENY inside download_plugin(): a caller must present
+        // either a valid signed download token or a resolving valid+active
+        // license. The public permission_callback only gates IP-block/rate
+        // limiting; the byte-serving authorization happens in the handler.
         register_rest_route(self::NAMESPACE, '/updates/download', [
             'methods' => WP_REST_Server::READABLE,
             'callback' => [$this, 'download_plugin'],
             'permission_callback' => [Peanut_API_Security::class, 'permission_public_readonly'],
             'args' => [
                 'license' => [
+                    'required' => false,
+                    'type' => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'token' => [
                     'required' => false,
                     'type' => 'string',
                     'sanitize_callback' => 'sanitize_text_field',
@@ -200,12 +209,15 @@ class Peanut_API_Endpoints {
             ],
         ]);
 
-        // Get all activations for a license (for admin dashboard view)
-        // Requires WordPress admin authentication since it exposes all activation data
+        // Get all activations for a license (for admin dashboard view).
+        // Requires WordPress admin authentication since it exposes every
+        // activated site (domain, IP, WP/PHP/plugin versions, health) — data
+        // that must NOT be readable by any holder of a single valid key. Mirrors
+        // the peanut-admin/v1 routes' admin_permission_check.
         register_rest_route(self::NAMESPACE, '/license/activations', [
             'methods' => WP_REST_Server::READABLE,
             'callback' => [$this, 'get_license_activations'],
-            'permission_callback' => [Peanut_API_Security::class, 'permission_public_license'],
+            'permission_callback' => [$this, 'admin_permission_check'],
             'args' => [
                 'license_key' => [
                     'required' => true,
@@ -443,13 +455,36 @@ class Peanut_API_Endpoints {
 
         $plugin = $request->get_param('plugin') ?? 'peanut-suite';
         $license_key = $request->get_param('license');
+        $token = $request->get_param('token');
 
         if (!Peanut_Update_Server::is_valid_product($plugin)) {
             wp_die(__('Unknown plugin.', 'peanut-license-server'), 400);
         }
 
+        // DEFAULT-DENY: this public REST route must never stream the full plugin
+        // ZIP to an unauthenticated caller. Require EITHER a valid signed
+        // download token (same primitive the ?peanut_download handler uses) OR a
+        // resolving valid+active license before serving any bytes.
+        $authorized = false;
+
+        if (is_string($token) && $token !== ''
+            && peanut_verify_download_token($plugin, $token, is_string($license_key) ? $license_key : '')) {
+            $authorized = true;
+        } elseif (is_string($license_key) && $license_key !== '') {
+            $license = Peanut_License_Manager::get_by_key($license_key);
+            $authorized = $license && Peanut_License_Manager::is_valid($license);
+        }
+
+        if (!$authorized) {
+            status_header(403);
+            wp_die(
+                __('Unauthorized. A valid download token or active license is required.', 'peanut-license-server'),
+                403
+            );
+        }
+
         $update_server = new Peanut_Update_Server($plugin);
-        $update_server->serve_download($license_key);
+        $update_server->serve_download($license_key, true);
     }
 
     /**

@@ -16,6 +16,10 @@ define('PEANUT_LICENSE_SERVER_VERSION', '1.3.1');
 
 // WordPress stub constants
 define('ABSPATH', '/var/www/html/');
+// A real signing secret, mirroring production (WordPress always defines AUTH_KEY
+// in wp-config.php). The download-token helpers now fail closed when no secret
+// is configured, so the suite must provide one for the positive token tests.
+define('AUTH_KEY', 'peanut-test-auth-key-8f3c1a9e4b7d2650a1c9e8f7b6d5c4a3');
 define('DAY_IN_SECONDS', 86400);
 define('HOUR_IN_SECONDS', 3600);
 define('MINUTE_IN_SECONDS', 60);
