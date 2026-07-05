@@ -231,38 +231,66 @@ class Peanut_Update_Server {
     }
 
     /**
-     * Get download file path
+     * Get download file path.
+     *
+     * Returns the first existing candidate in trust order. The deploy-managed,
+     * non web-writable releases/ directory (pinned to the exact expected
+     * filename for the trusted version) is preferred over the web-writable
+     * uploads directory, so an attacker who can drop a file into uploads cannot
+     * win a newest-mtime race and have their ZIP served.
      */
     public function get_download_file(): ?string {
-        $slug = $this->product_slug;
-        $upload_dir = wp_upload_dir();
-        $base_path = $upload_dir['basedir'] . "/{$slug}/";
-
-        // Check for exact filename first
-        $exact_file = $base_path . "{$slug}.zip";
-        if (file_exists($exact_file)) {
-            return $exact_file;
-        }
-
-        // Check for versioned filename (slug-x.x.x.zip)
-        if (is_dir($base_path)) {
-            $files = glob($base_path . "{$slug}-*.zip");
-            if (!empty($files)) {
-                // Sort by modification time, newest first
-                usort($files, function($a, $b) {
-                    return filemtime($b) - filemtime($a);
-                });
-                return $files[0];
+        foreach ($this->get_download_file_candidates() as $candidate) {
+            if (file_exists($candidate)) {
+                return $candidate;
             }
         }
 
-        // Check alternative location
-        $alt_file = PEANUT_LICENSE_SERVER_PATH . "releases/{$slug}.zip";
-        if (file_exists($alt_file)) {
-            return $alt_file;
+        return null;
+    }
+
+    /**
+     * Build the ordered list of candidate download-file paths (most-trusted
+     * first). Pure/no-IO except wp_upload_dir(); the newest-mtime uploads glob
+     * is retained only as a last-resort fallback for releases already staged in
+     * uploads, and is ordered AFTER the trusted releases and pinned paths.
+     *
+     * @return string[] Absolute candidate paths, most-trusted first.
+     */
+    public function get_download_file_candidates(): array {
+        $slug = $this->product_slug;
+        $version = (string) get_option("peanut_{$slug}_version", '1.0.0');
+
+        // 1) Trusted, deploy-managed, NON web-writable releases directory,
+        //    pinned to the exact expected filename for the trusted version.
+        $releases_dir = PEANUT_LICENSE_SERVER_PATH . 'releases/';
+        $candidates = [
+            $releases_dir . "{$slug}-{$version}.zip",
+            $releases_dir . "{$slug}.zip",
+        ];
+
+        // 2) Web-writable uploads directory — only reached if no trusted release
+        //    exists. Pin the exact version before any newest-wins globbing.
+        $upload_dir = wp_upload_dir();
+        $base_path = ($upload_dir['basedir'] ?? '') . "/{$slug}/";
+        $candidates[] = $base_path . "{$slug}-{$version}.zip";
+        $candidates[] = $base_path . "{$slug}.zip";
+
+        // 3) Last resort: newest-mtime match in uploads (legacy behaviour, kept
+        //    so releases already staged in uploads keep working).
+        if (is_dir($base_path)) {
+            $glob = glob($base_path . "{$slug}-*.zip");
+            if (!empty($glob)) {
+                usort($glob, static function ($a, $b) {
+                    return filemtime($b) - filemtime($a);
+                });
+                foreach ($glob as $file) {
+                    $candidates[] = $file;
+                }
+            }
         }
 
-        return null;
+        return $candidates;
     }
 
     /**
@@ -284,10 +312,27 @@ class Peanut_Update_Server {
     }
 
     /**
-     * Serve download file
+     * Serve download file.
+     *
+     * DEFAULT-DENY: never streams bytes unless the caller has already proven the
+     * request is authorized (a valid signed download token or a resolving
+     * valid+active license — see Peanut_API_Endpoints::download_plugin()). The
+     * $authorized flag defaults to false so any new/forgotten caller fails
+     * closed instead of leaking the full plugin ZIP.
+     *
+     * @param string|null $license_key Optional license key (for download logging).
+     * @param bool        $authorized  Whether the caller verified authorization.
      */
-    public function serve_download(?string $license_key = null): void {
-        // Validate license if provided
+    public function serve_download(?string $license_key = null, bool $authorized = false): void {
+        if (!$authorized) {
+            status_header(403);
+            wp_die(
+                __('Unauthorized. A valid download token or active license is required.', 'peanut-license-server'),
+                403
+            );
+        }
+
+        // Validate license if provided (for download logging only).
         if ($license_key) {
             $license = Peanut_License_Manager::get_by_key($license_key);
 
@@ -315,18 +360,22 @@ class Peanut_Update_Server {
     }
 
     /**
-     * Validate license for updates
+     * Validate license for updates.
+     *
+     * Feeds only the informational `can_download` field in the update-check
+     * response (the actual egress is gated in download_plugin()/serve_download()).
+     * DEFAULT-DENY: an empty or unknown license resolves to false rather than
+     * advertising downloadability to anyone.
      */
     private function validate_license_for_update(?string $license_key): bool {
-        // Free tier can still download (they just get free features)
-        if (empty($license_key)) {
-            return true;
+        if (!is_string($license_key) || $license_key === '') {
+            return false;
         }
 
         $license = Peanut_License_Manager::get_by_key($license_key);
 
         if (!$license) {
-            return true; // Allow download, validation happens in plugin
+            return false;
         }
 
         return Peanut_License_Manager::is_valid($license);

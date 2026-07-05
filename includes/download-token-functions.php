@@ -18,28 +18,39 @@ defined('ABSPATH') || exit;
 if (!function_exists('peanut_get_download_secret')) {
     /**
      * Get the download signing secret.
-     * Falls back to AUTH_KEY if no dedicated secret is set.
      *
-     * @return string The signing secret.
+     * Requires a real, configured secret: a dedicated PEANUT_DOWNLOAD_SECRET or
+     * the WordPress AUTH_KEY. If neither is configured this returns an empty
+     * string and the token helpers FAIL CLOSED (generation yields no token,
+     * verification rejects every token) rather than falling back to a
+     * guessable, site-derived md5() or a hardcoded shared key — which would let
+     * an attacker forge download tokens.
+     *
+     * @return string The signing secret, or '' when none is configured.
      */
     function peanut_get_download_secret(): string {
-        // Use dedicated secret if available, otherwise fall back to AUTH_KEY
-        if (defined('PEANUT_DOWNLOAD_SECRET') && !empty(PEANUT_DOWNLOAD_SECRET)) {
-            return PEANUT_DOWNLOAD_SECRET;
+        // Test-only injection seam so the unit suite can exercise the
+        // fail-closed path deterministically (defined constants such as
+        // AUTH_KEY cannot be un-defined mid-run). This branch is dead in
+        // production, where PEANUT_LICENSE_SERVER_TESTING is never defined.
+        if (defined('PEANUT_LICENSE_SERVER_TESTING') && PEANUT_LICENSE_SERVER_TESTING
+            && array_key_exists('__peanut_download_secret_override', $GLOBALS)) {
+            return (string) $GLOBALS['__peanut_download_secret_override'];
         }
 
-        // Fall back to WordPress AUTH_KEY
-        if (defined('AUTH_KEY') && AUTH_KEY !== 'put your unique phrase here') {
-            return AUTH_KEY;
+        // Dedicated secret takes precedence when configured.
+        if (defined('PEANUT_DOWNLOAD_SECRET') && (string) PEANUT_DOWNLOAD_SECRET !== '') {
+            return (string) PEANUT_DOWNLOAD_SECRET;
         }
 
-        // Last resort: use a site-specific fallback (not ideal but better than nothing)
-        // This requires WordPress to be partially loaded
-        if (function_exists('get_site_url')) {
-            return 'peanut_dl_' . md5(get_site_url() . ABSPATH);
+        // Fall back to the WordPress AUTH_KEY (rejecting the shipped placeholder).
+        if (defined('AUTH_KEY') && (string) AUTH_KEY !== '' && AUTH_KEY !== 'put your unique phrase here') {
+            return (string) AUTH_KEY;
         }
 
-        return 'peanut_download_fallback_key';
+        // No trusted secret configured: fail closed. Do NOT derive a guessable
+        // key from the site URL/path or return a hardcoded fallback.
+        return '';
     }
 }
 
@@ -53,12 +64,21 @@ if (!function_exists('peanut_generate_download_token')) {
      * @return string The signed token.
      */
     function peanut_generate_download_token(string $plugin, string $license = '', int $expires = 0): string {
+        $secret = peanut_get_download_secret();
+
+        // Fail closed: without a configured secret we cannot mint a trustworthy
+        // token, so return an empty string rather than signing with a guessable
+        // key. Callers treat an empty token as "no download link available".
+        if ($secret === '') {
+            return '';
+        }
+
         if ($expires === 0) {
             $expires = time() + HOUR_IN_SECONDS; // 1 hour validity
         }
 
         $data = $plugin . '|' . $expires . '|' . $license;
-        $signature = hash_hmac('sha256', $data, peanut_get_download_secret());
+        $signature = hash_hmac('sha256', $data, $secret);
 
         return base64_encode($expires . '|' . $signature);
     }
@@ -74,6 +94,14 @@ if (!function_exists('peanut_verify_download_token')) {
      * @return bool True if valid, false otherwise.
      */
     function peanut_verify_download_token(string $plugin, string $token, string $license = ''): bool {
+        $secret = peanut_get_download_secret();
+
+        // Fail closed: with no configured secret, reject every token instead of
+        // validating against a guessable/hardcoded fallback.
+        if ($secret === '') {
+            return false;
+        }
+
         $decoded = base64_decode($token, true);
         if ($decoded === false) {
             return false;
@@ -93,7 +121,7 @@ if (!function_exists('peanut_verify_download_token')) {
 
         // Regenerate signature and compare
         $data = $plugin . '|' . $expires . '|' . $license;
-        $expected_signature = hash_hmac('sha256', $data, peanut_get_download_secret());
+        $expected_signature = hash_hmac('sha256', $data, $secret);
 
         return hash_equals($expected_signature, $provided_signature);
     }
