@@ -762,6 +762,10 @@ class PeanutTestHelper {
 // class; the production code calls them as globals, so load them in isolation).
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/download-token-functions.php';
 
+// Trusted-proxy client-IP resolver — standalone helpers the classes call as
+// globals; load in isolation like the download-token helpers above.
+require_once PEANUT_LICENSE_SERVER_PATH . 'includes/client-ip-functions.php';
+
 // Load plugin classes
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-logger.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-db-migrations.php';
