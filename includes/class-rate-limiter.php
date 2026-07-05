@@ -131,21 +131,11 @@ class Peanut_Rate_Limiter {
      * Get client IP address
      */
     private static function get_client_ip(): string {
-        $ip_keys = ['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR'];
-
-        foreach ($ip_keys as $key) {
-            if (!empty($_SERVER[$key])) {
-                $ip = $_SERVER[$key];
-                if (strpos($ip, ',') !== false) {
-                    $ip = trim(explode(',', $ip)[0]);
-                }
-                if (filter_var($ip, FILTER_VALIDATE_IP)) {
-                    return $ip;
-                }
-            }
-        }
-
-        return '0.0.0.0';
+        // Delegate to the shared trusted-proxy resolver so forwarded headers
+        // (CF-Connecting-IP / X-Forwarded-For / X-Real-IP) are only honoured
+        // behind a configured trusted proxy and cannot be spoofed to defeat
+        // rate-limits / IP bans. See includes/client-ip-functions.php.
+        return peanut_get_client_ip();
     }
 
     /**

@@ -27,6 +27,12 @@ define('PEANUT_LICENSE_SERVER_BASENAME', plugin_basename(__FILE__));
 // the immediate download handler below, which calls peanut_serve_plugin_download().
 require_once __DIR__ . '/includes/download-token-functions.php';
 
+// Trusted-proxy client-IP resolver (single source of truth for every throttle,
+// IP block, and audit signal). Dependency-light like the token helpers so the
+// unit suite can load it in isolation. Required early so any class method that
+// delegates to peanut_get_client_ip() has it available.
+require_once __DIR__ . '/includes/client-ip-functions.php';
+
 /**
  * IMMEDIATE Download Handler - runs before anything else
  * This bypasses all WordPress processing to avoid 406 errors
