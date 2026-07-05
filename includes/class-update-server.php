@@ -48,6 +48,14 @@ class Peanut_Update_Server {
             'homepage' => 'https://peanutgraphic.com/peanut-booker',
             'description' => 'A membership and booking platform connecting performers with event organizers.',
         ],
+        'formflow-lite' => [
+            'name' => 'FormFlow Lite',
+            'slug' => 'formflow-lite',
+            'file' => 'formflow-lite/formflow-lite.php',
+            'author' => 'Peanut Graphic',
+            'homepage' => 'https://peanutgraphic.com/formflow-lite',
+            'description' => 'Lightweight API-integrated enrollment forms for WordPress.',
+        ],
     ];
 
     /**
