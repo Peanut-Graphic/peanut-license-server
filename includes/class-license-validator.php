@@ -297,14 +297,18 @@ class Peanut_License_Validator {
             'activations_used' => $license->activations_count ?? 0,
             'activations_limit' => (int) $license->max_activations,
             'features' => $this->format_features($tier_features),
-            'activated_sites' => array_map(function ($activation) {
+            // Least-disclosure: this response is returned to ANY key holder over
+            // /license/status and /license/validate. We must NOT leak other
+            // customer sites' identifying fields (site_url / site_name) to the
+            // caller. Expose only aggregate, non-identifying seat metadata per
+            // active activation (activation date + active flag); the seat counts
+            // the SDK/admin rely on remain in activations_used/activations_limit.
+            'activated_sites' => array_values(array_map(function ($activation) {
                 return [
-                    'site_url' => $activation->site_url,
-                    'site_name' => $activation->site_name,
                     'activated_at' => $activation->activated_at,
                     'is_active' => (bool) $activation->is_active,
                 ];
-            }, array_filter($license->activations ?? [], fn($a) => $a->is_active)),
+            }, array_filter($license->activations ?? [], fn($a) => $a->is_active))),
         ];
     }
 

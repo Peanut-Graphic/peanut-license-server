@@ -385,6 +385,69 @@ class LicenseValidatorTest extends TestCase {
     // Integration with License Manager Tests
     // =========================================================================
 
+    // =========================================================================
+    // Cross-Site Disclosure Tests (least-disclosure of activated_sites)
+    // =========================================================================
+
+    /**
+     * A /license/status or /license/validate response for a key with 2+
+     * activated sites must NOT expose OTHER sites' identifying fields
+     * (site_url / site_name) to the caller. Only aggregate seat counts and
+     * non-identifying per-activation metadata may be returned.
+     *
+     * @test
+     * @covers Peanut_License_Validator::format_license_response
+     */
+    public function license_response_does_not_leak_other_activated_sites_urls_or_names(): void {
+        // Two sites activated under the same license key.
+        $license = (object) [
+            'id' => 42,
+            'status' => 'active',
+            'tier' => 'free',
+            'expires_at' => null,
+            'activations_count' => 2,
+            'max_activations' => 5,
+            'activations' => [
+                (object) [
+                    'site_url' => 'https://caller-site.example.com',
+                    'site_name' => 'Caller Site',
+                    'activated_at' => '2026-01-01 00:00:00',
+                    'is_active' => 1,
+                ],
+                (object) [
+                    'site_url' => 'https://other-customer.example.org',
+                    'site_name' => 'Other Customer Site',
+                    'activated_at' => '2026-02-02 00:00:00',
+                    'is_active' => 1,
+                ],
+            ],
+        ];
+
+        // format_license_response is private; exercise it directly since it is
+        // the exact payload builder shared by validate_only + validate_and_activate.
+        $method = new ReflectionMethod(Peanut_License_Validator::class, 'format_license_response');
+        $response = $method->invoke($this->validator, $license);
+
+        // Seat-count semantics the SDK/admin rely on are preserved.
+        $this->assertSame(2, $response['activations_used']);
+        $this->assertSame(5, $response['activations_limit']);
+
+        // The identifying fields of ANY site must not appear anywhere in the payload.
+        $encoded = wp_json_encode($response);
+        $this->assertStringNotContainsString('other-customer.example.org', $encoded);
+        $this->assertStringNotContainsString('Other Customer Site', $encoded);
+        // The caller's own identifying fields are likewise not echoed back.
+        $this->assertStringNotContainsString('caller-site.example.com', $encoded);
+        $this->assertStringNotContainsString('Caller Site', $encoded);
+
+        // Per-activation rows carry only non-identifying metadata.
+        $this->assertArrayHasKey('activated_sites', $response);
+        foreach ($response['activated_sites'] as $row) {
+            $this->assertArrayNotHasKey('site_url', $row);
+            $this->assertArrayNotHasKey('site_name', $row);
+        }
+    }
+
     /**
      * @test
      */
