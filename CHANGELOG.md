@@ -5,6 +5,17 @@ All notable changes to Peanut License Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-07-05
+
+### Security
+- **Gate the REST `/updates/download` endpoint behind download-token verification.**
+  The route served the paid plugin ZIP to any unauthenticated caller — the
+  signed-token scheme (`peanut_verify_download_token`, issued by
+  `/updates/check`) was only enforced on the `peanut_download` query-var path,
+  never on the REST route. It now requires + verifies the same token. Legit
+  auto-update clients already receive a signed download URL, so the real update
+  flow is unchanged. Found by the 2026-07-05 WP-plugin security microscope.
+
 ## [1.4.0] - 2026-06-16
 
 ### Fixed

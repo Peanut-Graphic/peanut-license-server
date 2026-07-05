@@ -138,6 +138,11 @@ class Peanut_API_Endpoints {
                     'type' => 'string',
                     'sanitize_callback' => 'sanitize_text_field',
                 ],
+                'token' => [
+                    'required' => true,
+                    'type' => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
             ],
         ]);
 
@@ -443,9 +448,29 @@ class Peanut_API_Endpoints {
 
         $plugin = $request->get_param('plugin') ?? 'peanut-suite';
         $license_key = $request->get_param('license');
+        $token = (string) $request->get_param('token');
 
         if (!Peanut_Update_Server::is_valid_product($plugin)) {
             wp_die(__('Unknown plugin.', 'peanut-license-server'), 400);
+        }
+
+        // SECURITY: this REST route previously served the paid plugin ZIP to
+        // ANY caller — the signed-token scheme (peanut_verify_download_token,
+        // issued by /updates/check via get_signed_download_url) was only
+        // enforced on the peanut_download query-var path, never here. Require
+        // and verify the same token so an unauthenticated request can no
+        // longer pull the codebase. Legit clients already receive a signed
+        // download_url from the update check, so this does not change the
+        // real auto-update flow.
+        if ($token === '' || !peanut_verify_download_token($plugin, $token, (string) $license_key)) {
+            error_log(sprintf(
+                'Peanut License Server SECURITY: Unauthorized REST download attempt. Plugin: %s, IP: %s, Token: %s',
+                $plugin,
+                sanitize_text_field($_SERVER['REMOTE_ADDR'] ?? 'unknown'),
+                $token === '' ? 'missing' : 'invalid'
+            ));
+            status_header(403);
+            wp_die(__('Unauthorized. Please use a valid download link.', 'peanut-license-server'), 403);
         }
 
         $update_server = new Peanut_Update_Server($plugin);

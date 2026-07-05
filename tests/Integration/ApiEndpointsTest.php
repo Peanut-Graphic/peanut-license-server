@@ -247,6 +247,58 @@ class ApiEndpointsTest extends TestCase {
     }
 
     /**
+     * SECURITY REGRESSION (2026-07-05 microscope): the REST /updates/download
+     * route served the paid plugin ZIP to ANY caller — the signed-token scheme
+     * was only enforced on the peanut_download query-var path. download_plugin()
+     * now requires + verifies the same token before serving.
+     */
+    public function test_download_rejects_missing_token(): void {
+        $endpoints = new \Peanut_API_Endpoints();
+        $request = new \WP_REST_Request('GET', '/updates/download');
+        $request->set_param('plugin', 'formflow');
+        // no token
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Unauthorized');
+        $endpoints->download_plugin($request);
+    }
+
+    public function test_download_rejects_invalid_token(): void {
+        $endpoints = new \Peanut_API_Endpoints();
+        $request = new \WP_REST_Request('GET', '/updates/download');
+        $request->set_param('plugin', 'formflow');
+        $request->set_param('token', 'not-a-real-signed-token');
+        $request->set_param('license', 'ABCD-1234-EFGH-5678');
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Unauthorized');
+        $endpoints->download_plugin($request);
+    }
+
+    public function test_download_accepts_a_freshly_signed_token(): void {
+        // A token minted by the same helper the update check uses must pass the
+        // gate (it then proceeds to serve_download, which wp_die's 404 in the
+        // test env because no ZIP file exists on disk — proving we got PAST the
+        // auth gate rather than being rejected as unauthorized).
+        $license = 'ABCD-1234-EFGH-5678';
+        $token = \peanut_generate_download_token('formflow', $license, time() + 3600);
+
+        $endpoints = new \Peanut_API_Endpoints();
+        $request = new \WP_REST_Request('GET', '/updates/download');
+        $request->set_param('plugin', 'formflow');
+        $request->set_param('token', $token);
+        $request->set_param('license', $license);
+
+        try {
+            $endpoints->download_plugin($request);
+            $this->fail('Expected serve_download to wp_die past the auth gate.');
+        } catch (\Exception $e) {
+            $this->assertStringNotContainsString('Unauthorized', $e->getMessage(),
+                'A validly-signed token must not be rejected by the auth gate.');
+        }
+    }
+
+    /**
      * Create a mock request object
      */
     private function createMockRequest(array $params): object {
