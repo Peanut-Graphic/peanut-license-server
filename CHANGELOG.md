@@ -5,6 +5,20 @@ All notable changes to Peanut License Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-07-05
+
+### Security & delivery (microscope remediation)
+
+- **Gated the update-package download egress.** The public `GET /updates/download` REST route streamed the full plugin ZIP to any caller with no license and no token; it now default-denies (requires a valid signed download token or a resolving active license), and `serve_download()` fails closed on an `$authorized` flag.
+- **`/license/activations` is admin-only again** (its permission callback was public despite the comment), closing a leak of every activated site's domain, IP, and versions to any key holder.
+- **Trusted-proxy client-IP resolver.** Rate-limiting and IP-blocking no longer trust spoofable `CF-Connecting-IP` / `X-Forwarded-For` headers ahead of `REMOTE_ADDR`.
+- **`/license/status` + `/license/validate`** no longer leak other activated sites' URLs/names to a license-key holder.
+- **Fail-closed download token** — the token secret no longer falls back to a predictable or hardcoded value.
+
+### Update delivery unification
+
+- **`/updates/check` + `/updates/info` now serve the canonical GitHub-release package** (`github.com/peanutgraphic/<slug>/releases/download/v<version>/<slug>-<version>.zip`), the same source the per-product update mu-plugins already use, so every plugin — whether its updater calls `/updates/check` (peanut-suite, formflow) or the mu-plugin route (peanut-connect) — receives the identical package from one source. The explicit `peanut_<slug>_download_url` override still wins, and the self-hosted signed path remains as a fallback when no version is advertised.
+
 ## [1.4.0] - 2026-06-16
 
 ### Fixed
