@@ -165,23 +165,70 @@ class Peanut_Update_Server {
     }
 
     /**
-     * Get download URL
-     * Returns a signed URL for secure downloads
+     * Get download URL.
+     *
+     * Unified update delivery: the URL returned here is what the LEGACY
+     * /updates/check + /updates/info responses hand to the peanut-suite /
+     * formflow client updaters (via download_url/package). It now resolves to
+     * the SAME canonical GitHub Releases package that the per-product update
+     * mu-plugins (e.g. peanut-suite-update.php) and the /updates mu-route already
+     * serve, so every client — legacy and mu-route — installs identical bytes
+     * from one source of truth instead of a stale/missing self-hosted ZIP in
+     * wp-content/uploads/<slug>/.
+     *
+     * Precedence:
+     *   1. Explicit operator override — peanut_{slug}_download_url (escape hatch).
+     *   2. GitHub Releases URL derived from the advertised version (canonical).
+     *   3. Fallback — the signed self-hosted ?peanut_download URL, retained only
+     *      for products with no advertised version so nothing regresses.
      *
      * @param string|null $license_key Optional license key for the download.
-     * @return string Signed download URL.
+     * @return string Download URL.
      */
     public function get_download_url(?string $license_key = null): string {
         $slug = $this->product_slug;
 
-        // Check for custom download URL in settings (external CDN, etc.)
+        // 1) Explicit operator override in settings (external CDN, etc.).
         $custom_url = get_option("peanut_{$slug}_download_url", '');
         if (!empty($custom_url)) {
             return $custom_url;
         }
 
-        // Generate signed download URL for security
+        // 2) Canonical GitHub Releases package (matches the mu-plugins).
+        $github_url = $this->get_github_release_url();
+        if ($github_url !== '') {
+            return $github_url;
+        }
+
+        // 3) Fallback: signed self-hosted URL when no version is advertised.
         return $this->get_signed_download_url($license_key);
+    }
+
+    /**
+     * Build the canonical GitHub Releases package URL for this product.
+     *
+     * Mirrors what the per-product update mu-plugins hardcode:
+     *   https://github.com/{repo}/releases/download/v{version}/{slug}-{version}.zip
+     * keyed on the advertised version option peanut_{slug}_version. The repo
+     * defaults to the canonical peanutgraphic/{slug} but can be overridden
+     * per-product via peanut_{slug}_github_repo.
+     *
+     * @return string Release URL, or '' when no version is advertised (caller
+     *                then falls back to the self-hosted signed URL).
+     */
+    private function get_github_release_url(): string {
+        $slug = $this->product_slug;
+
+        $version = (string) get_option("peanut_{$slug}_version", '');
+        if ($version === '') {
+            return '';
+        }
+
+        $repo = (string) get_option("peanut_{$slug}_github_repo", 'peanutgraphic/' . $slug);
+
+        // Build the URL literally. A normal semver (e.g. 4.0.7) is path-safe as
+        // written, so do not encode it in a way that would mangle the dots.
+        return "https://github.com/{$repo}/releases/download/v{$version}/{$slug}-{$version}.zip";
     }
 
     /**
