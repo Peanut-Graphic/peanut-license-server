@@ -48,6 +48,14 @@ class Peanut_Update_Server {
             'homepage' => 'https://peanutgraphic.com/peanut-booker',
             'description' => 'A membership and booking platform connecting performers with event organizers.',
         ],
+        'formflow-lite' => [
+            'name' => 'FormFlow Lite',
+            'slug' => 'formflow-lite',
+            'file' => 'formflow-lite/formflow-lite.php',
+            'author' => 'Peanut Graphic',
+            'homepage' => 'https://peanutgraphic.com/formflow-lite',
+            'description' => 'Lightweight API-integrated enrollment forms for WordPress.',
+        ],
     ];
 
     /**
@@ -200,7 +208,13 @@ class Peanut_Update_Server {
             return $github_url;
         }
 
-        // 3) Fallback: signed self-hosted URL when no version is advertised.
+        // 3) DEPRECATED fallback: signed self-hosted ?peanut_download URL, only
+        //    reachable when NO version is advertised. Superseded by GitHub-release
+        //    delivery above; in practice every product advertises a version, so
+        //    this branch is effectively dead. Retained (not returned '') so a
+        //    product with no advertised version does not regress to a broken URL.
+        //    Safe to delete once every product advertises a version and all
+        //    installs are off the ?peanut_download path.
         return $this->get_signed_download_url($license_key);
     }
 
@@ -234,6 +248,12 @@ class Peanut_Update_Server {
     /**
      * Get a signed download URL with expiring token.
      *
+     * DEPRECATED — superseded by GitHub-release delivery via get_download_url().
+     * Only reached as the no-advertised-version fallback of get_download_url()
+     * (and by the legacy WooCommerce/admin self-hosted download surfaces).
+     * Retained only as a fallback; safe to delete once all installs are off the
+     * ?peanut_download path.
+     *
      * @param string|null $license_key Optional license key.
      * @param int $expires_in Seconds until token expires (default 1 hour).
      * @return string Signed download URL.
@@ -261,6 +281,10 @@ class Peanut_Update_Server {
     /**
      * Get AJAX download URL (alternative to signed direct URL).
      *
+     * DEPRECATED — superseded by GitHub-release delivery via get_download_url();
+     * part of the self-hosted ?peanut_download / admin-ajax path, retained only
+     * as a fallback and safe to delete once all installs are off it.
+     *
      * @param string|null $license_key Optional license key.
      * @return string AJAX download URL.
      */
@@ -279,6 +303,11 @@ class Peanut_Update_Server {
 
     /**
      * Get download file path.
+     *
+     * DEPRECATED — superseded by GitHub-release delivery via get_download_url().
+     * Only used by the self-hosted ?peanut_download / serve_download path and the
+     * admin "is a self-hosted ZIP staged?" status displays. Retained only as a
+     * fallback; safe to delete once all installs are off the ?peanut_download path.
      *
      * Returns the first existing candidate in trust order. The deploy-managed,
      * non web-writable releases/ directory (pinned to the exact expected
@@ -360,6 +389,13 @@ class Peanut_Update_Server {
 
     /**
      * Serve download file.
+     *
+     * DEPRECATED — superseded by GitHub-release delivery via get_download_url().
+     * This streams the OLD self-hosted uploads/releases ZIP and is only reachable
+     * through the deprecated /updates/download route and the ?peanut_download
+     * handler. Retained only as a fallback; safe to delete once all installs are
+     * off the ?peanut_download path. It must NEVER be reachable from the normal
+     * update-check flow, which now hands out GitHub URLs directly.
      *
      * DEFAULT-DENY: never streams bytes unless the caller has already proven the
      * request is authorized (a valid signed download token or a resolving
