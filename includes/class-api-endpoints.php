@@ -127,7 +127,12 @@ class Peanut_API_Endpoints {
             ],
         ]);
 
-        // Plugin download.
+        // Plugin download (DEPRECATED self-hosted path).
+        // Superseded by GitHub-release delivery: update checks now hand clients a
+        // canonical GitHub Releases URL (get_download_url()), so WordPress fetches
+        // the package straight from GitHub and never hits this route. Retained
+        // only as a fallback for the legacy self-hosted ?peanut_download / uploads
+        // ZIPs; safe to delete once all installs are off that path.
         // Egress is DEFAULT-DENY inside download_plugin(): a caller must present
         // either a valid signed download token or a resolving valid+active
         // license. The public permission_callback only gates IP-block/rate
@@ -143,6 +148,37 @@ class Peanut_API_Endpoints {
                     'sanitize_callback' => 'sanitize_text_field',
                 ],
                 'token' => [
+                    'required' => false,
+                    'type' => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+            ],
+        ]);
+
+        // Per-product update check (absorbs the per-product update mu-plugins).
+        //
+        // Serves the exact route the mu-plugins answer, e.g.
+        //   /updates/peanut-connect/3.20.0
+        //   /updates/peanut-suite/4.2.2
+        // so the peanut-connect client updater (which calls
+        // /updates/<slug>/<version>) — and every other per-product updater — can
+        // be served from this plugin, letting the mu-plugins be deleted. The
+        // response is IDENTICAL to /updates/check (same Peanut_Update_Server
+        // methods), so delivery is the already-unified GitHub-release URL.
+        //
+        // COLLISION SAFETY: the {plugin} capture uses a negative lookahead that
+        // refuses the reserved words check|info|download, so this generic route
+        // can never shadow the literal /updates/check, /updates/info or
+        // /updates/download routes registered above. (Those literals also lack
+        // the trailing "/<version>" segment this pattern requires, so they would
+        // not match regardless — the lookahead is belt-and-suspenders.) Unknown
+        // slugs are rejected 400 in the handler via is_valid_product().
+        register_rest_route(self::NAMESPACE, '/updates/(?P<plugin>(?!check|info|download)[a-z0-9-]+)/(?P<current_version>[0-9.]+)?', [
+            'methods' => WP_REST_Server::READABLE,
+            'callback' => [$this, 'check_product_update'],
+            'permission_callback' => [Peanut_API_Security::class, 'permission_public_readonly'],
+            'args' => [
+                'license' => [
                     'required' => false,
                     'type' => 'string',
                     'sanitize_callback' => 'sanitize_text_field',
@@ -411,6 +447,56 @@ class Peanut_API_Endpoints {
         }
 
         $current_version = $request->get_param('version');
+        $license_key = $request->get_param('license');
+
+        $update_server = new Peanut_Update_Server($plugin);
+        $result = $update_server->check_update($current_version, $license_key);
+
+        $response = new WP_REST_Response($result, 200);
+
+        return Peanut_Rate_Limiter::add_headers($response, 'update_check');
+    }
+
+    /**
+     * Per-product update check served on the route the mu-plugins answer:
+     *   /updates/<plugin>/<current_version>
+     *
+     * Reads {plugin} and {current_version} from the URL path (the client
+     * updaters — notably peanut-connect — call this shape instead of the
+     * ?plugin=&version= query form). Returns the SAME payload as check_update()
+     * by delegating to the SAME Peanut_Update_Server methods, so the download
+     * URL is the already-unified canonical GitHub-release package. This is what
+     * lets the per-product update mu-plugins be retired.
+     */
+    public function check_product_update(WP_REST_Request $request): WP_REST_Response {
+        // Check rate limit (shared bucket with /updates/check).
+        $rate_limited = Peanut_Rate_Limiter::check('update_check');
+        if ($rate_limited) {
+            return $rate_limited;
+        }
+
+        Peanut_Rate_Limiter::record_request('update_check');
+
+        $plugin = $request->get_param('plugin');
+
+        // Validate plugin slug — unknown products are rejected (400).
+        if (!is_string($plugin) || !Peanut_Update_Server::is_valid_product($plugin)) {
+            $response = new WP_REST_Response([
+                'error' => 'invalid_plugin',
+                'message' => __('Unknown plugin.', 'peanut-license-server'),
+                'valid_plugins' => array_keys(Peanut_Update_Server::get_all_products()),
+            ], 400);
+
+            return Peanut_Rate_Limiter::add_headers($response, 'update_check');
+        }
+
+        // {current_version} is an optional path segment; default to 0.0.0 so a
+        // bare /updates/<plugin>/ still resolves (mirrors the mu-plugin default).
+        $current_version = $request->get_param('current_version');
+        if (!is_string($current_version) || $current_version === '') {
+            $current_version = '0.0.0';
+        }
+
         $license_key = $request->get_param('license');
 
         $update_server = new Peanut_Update_Server($plugin);

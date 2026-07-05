@@ -37,6 +37,12 @@ require_once __DIR__ . '/includes/client-ip-functions.php';
  * IMMEDIATE Download Handler - runs before anything else
  * This bypasses all WordPress processing to avoid 406 errors
  *
+ * DEPRECATED — superseded by GitHub-release delivery via
+ * Peanut_Update_Server::get_download_url(). Update checks now hand clients a
+ * canonical GitHub Releases URL, so WordPress installs the package directly from
+ * GitHub and never hits this self-hosted ?peanut_download path. Retained only as
+ * a fallback; safe to delete once all installs are off the ?peanut_download path.
+ *
  * SECURITY: Requires signed token to prevent unauthorized downloads.
  * Token format: HMAC-SHA256(plugin|timestamp|license, secret_key)
  */
@@ -446,6 +452,12 @@ final class Peanut_License_Server {
      * Handle plugin downloads via admin-ajax.php
      * This bypasses Apache mod_negotiation which causes 406 errors
      * URL: /wp-admin/admin-ajax.php?action=peanut_download_plugin&plugin=peanut-suite
+     *
+     * DEPRECATED — superseded by GitHub-release delivery via
+     * Peanut_Update_Server::get_download_url(). Serves the OLD self-hosted
+     * uploads/releases ZIP and is not part of the normal update-check flow.
+     * Retained only as a fallback; safe to delete once all installs are off the
+     * ?peanut_download / admin-ajax self-hosted path.
      */
     public function handle_ajax_download(): void {
         // Verify nonce for security
