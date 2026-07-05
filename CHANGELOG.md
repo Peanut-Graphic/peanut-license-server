@@ -5,6 +5,13 @@ All notable changes to Peanut License Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-07-05
+
+### Update delivery
+
+- **Serve per-product update routes** (`/updates/<slug>/<version>`) directly from the license server, matching what the per-product update mu-plugins provided. Every plugin's updater — whether it calls `/updates/check` or the per-product route — now resolves through one code path to the canonical GitHub-release package. This lets the six `*-update.php` mu-plugins be retired (except the license server's own, kept for bootstrapping). Added `formflow-lite` to the product registry.
+- **Deprecated the self-hosted `?peanut_download` / uploads download path** — superseded by GitHub-release delivery. Retained as a dormant fallback; safe to remove once all installs are off it.
+
 ## [1.4.1] - 2026-07-05
 
 ### Security & delivery (microscope remediation)
