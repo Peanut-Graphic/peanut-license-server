@@ -187,6 +187,12 @@ class Peanut_API_Endpoints {
         ]);
 
         // Health check
+        register_rest_route(self::NAMESPACE, '/public-key', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'get_public_key'],
+            'permission_callback' => '__return_true',
+        ]);
+
         register_rest_route(self::NAMESPACE, '/health', [
             'methods' => WP_REST_Server::READABLE,
             'callback' => [$this, 'health_check'],
@@ -267,6 +273,13 @@ class Peanut_API_Endpoints {
     /**
      * Validate and activate license
      */
+    /**
+     * Public signing key for clients to pin and verify signed entitlements.
+     */
+    public function get_public_key(): WP_REST_Response {
+        return new WP_REST_Response( ( new Peanut_License_Signer() )->public_key(), 200 );
+    }
+
     public function validate_license(WP_REST_Request $request): WP_REST_Response {
         // Check rate limit
         $rate_limited = Peanut_Rate_Limiter::check('license_validate');
@@ -308,6 +321,12 @@ class Peanut_API_Endpoints {
 
         // Log the attempt
         if ($result['success']) {
+            // Sign the entitlement so the client can prove the granted tier came
+            // from this server and was not forged/replayed (audit 2026-07, C1b).
+            if (!empty($result['license']) && is_array($result['license'])) {
+                $result['signature'] = ( new Peanut_License_Signer() )
+                    ->sign_entitlement($result['license'], $license_key, $site_url);
+            }
             Peanut_Validation_Logger::log_success($license_key, $site_url, 'validate');
         } else {
             Peanut_Validation_Logger::log_failure(
