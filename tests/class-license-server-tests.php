@@ -54,6 +54,7 @@ class License_Server_Tests {
         $this->test_nonce_verification();
         $this->test_capability_checks();
         $this->test_input_sanitization();
+        $this->test_entitlement_signing();
 
         // Integration tests
         $this->test_webhook_handling();
@@ -480,6 +481,44 @@ class License_Server_Tests {
     // ========================================
     // Helpers
     // ========================================
+
+    private function test_entitlement_signing(): void {
+        $this->log_section('Entitlement Signing');
+
+        if (!class_exists('Peanut_License_Signer')) {
+            $this->assert(false, 'Peanut_License_Signer class exists');
+            return;
+        }
+        $signer = new Peanut_License_Signer();
+
+        $pk = $signer->public_key();
+        $this->assert(
+            ($pk['alg'] ?? '') === 'ed25519' && !empty($pk['public_key']) && !empty($pk['kid']),
+            'public_key() returns an ed25519 key + kid'
+        );
+
+        $license = ['status' => 'active', 'tier' => 'agency', 'expires_at' => '2027-01-01'];
+        $signed  = $signer->sign_entitlement($license, 'PEANUT-REAL-KEY-123', 'https://site.example');
+        $this->assert(!empty($signed['signature']), 'sign_entitlement() returns a signature');
+
+        $this->assert(
+            $signer->verify($signed, 'PEANUT-REAL-KEY-123', 'https://site.example') === true,
+            'verify() accepts a genuine signature (canonicalization round-trips)'
+        );
+        $this->assert(
+            $signer->verify($signed, 'PEANUT-OTHER-KEY-999', 'https://site.example') === false,
+            'verify() rejects a mismatched license key (no cross-site replay)'
+        );
+        $this->assert(
+            $signer->verify($signed, 'PEANUT-REAL-KEY-123', 'https://evil.example') === false,
+            'verify() rejects a mismatched site'
+        );
+        $tampered = $signed; $tampered['tier'] = 'free';
+        $this->assert(
+            $signer->verify($tampered, 'PEANUT-REAL-KEY-123', 'https://site.example') === false,
+            'verify() rejects a tampered tier'
+        );
+    }
 
     private function assert(bool $condition, string $message): void {
         if ($condition) {
