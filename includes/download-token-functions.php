@@ -15,6 +15,39 @@
 
 defined('ABSPATH') || exit;
 
+if (!function_exists('peanut_is_path_within_roots')) {
+    /**
+     * Verify that an existing filesystem path resolves beneath an allowed root.
+     *
+     * Uses real paths and a directory-separator boundary so sibling prefixes
+     * (for example uploads-evil beside uploads) and symlinks escaping a trusted
+     * directory are rejected.
+     *
+     * @param string   $path          Existing file path.
+     * @param string[] $allowed_roots Existing trusted directories.
+     */
+    function peanut_is_path_within_roots(string $path, array $allowed_roots): bool {
+        $real_path = realpath($path);
+        if ($real_path === false || !is_file($real_path)) {
+            return false;
+        }
+
+        foreach ($allowed_roots as $root) {
+            $real_root = realpath($root);
+            if ($real_root === false || !is_dir($real_root)) {
+                continue;
+            }
+
+            $prefix = rtrim($real_root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+            if (str_starts_with($real_path, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
 if (!function_exists('peanut_get_download_secret')) {
     /**
      * Get the download signing secret.

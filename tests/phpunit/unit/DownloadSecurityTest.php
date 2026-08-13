@@ -18,8 +18,43 @@ use PHPUnit\Framework\TestCase;
  * @covers ::peanut_generate_download_token
  * @covers ::peanut_verify_download_token
  * @covers ::peanut_get_download_secret
+ * @covers ::peanut_is_path_within_roots
  */
 class DownloadSecurityTest extends TestCase {
+
+    public function test_path_guard_rejects_prefix_siblings_and_escaping_symlinks(): void {
+        $base = sys_get_temp_dir() . '/peanut-download-path-' . bin2hex(random_bytes(6));
+        $trusted = $base . '/uploads';
+        $sibling = $base . '/uploads-evil';
+        mkdir($trusted, 0700, true);
+        mkdir($sibling, 0700, true);
+
+        $trusted_file = $trusted . '/plugin.zip';
+        $outside_file = $sibling . '/plugin.zip';
+        $escape_link = $trusted . '/linked.zip';
+        file_put_contents($trusted_file, 'trusted');
+        file_put_contents($outside_file, 'outside');
+        symlink($outside_file, $escape_link);
+
+        try {
+            $this->assertTrue(peanut_is_path_within_roots($trusted_file, [$trusted]));
+            $this->assertFalse(
+                peanut_is_path_within_roots($outside_file, [$trusted]),
+                'A sibling directory sharing the trusted prefix must not pass containment.'
+            );
+            $this->assertFalse(
+                peanut_is_path_within_roots($escape_link, [$trusted]),
+                'A symlink that resolves outside the trusted root must fail closed.'
+            );
+        } finally {
+            unlink($escape_link);
+            unlink($trusted_file);
+            unlink($outside_file);
+            rmdir($trusted);
+            rmdir($sibling);
+            rmdir($base);
+        }
+    }
 
     /**
      * Test download token generation creates valid format
