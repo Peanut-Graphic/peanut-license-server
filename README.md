@@ -21,6 +21,12 @@ Peanut License Server is the central backend for the entire Peanut ecosystem. It
 - WooCommerce (optional, for e-commerce features)
 - WooCommerce Subscriptions (optional, for recurring licenses)
 
+The installed plugin supports PHP 8.0 and later. Local dependency resolution
+and the full mock test suites require PHP 8.1 or later because PHPUnit 10 does
+not run on PHP 8.0. Required CI proves the complete tracked PHP tree parses on
+exact PHP 8.0, runs the full mock suites on exact PHP 8.1, retains the PHP 8.2
+coverage/security lanes, and exercises the real WordPress contract on PHP 8.3.
+
 ## Supported Products
 
 - Peanut Suite
