@@ -316,9 +316,15 @@ class Peanut_Update_Server {
      * win a newest-mtime race and have their ZIP served.
      */
     public function get_download_file(): ?string {
+        $upload_dir = wp_upload_dir();
+        $allowed_roots = [
+            PEANUT_LICENSE_SERVER_PATH . 'releases',
+            ($upload_dir['basedir'] ?? '') . '/' . $this->product_slug,
+        ];
+
         foreach ($this->get_download_file_candidates() as $candidate) {
-            if (file_exists($candidate)) {
-                return $candidate;
+            if (peanut_is_path_within_roots($candidate, $allowed_roots)) {
+                return realpath($candidate) ?: null;
             }
         }
 

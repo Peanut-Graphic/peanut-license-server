@@ -303,7 +303,6 @@ class WebhookHandlerTest extends TestCase {
         // Use reflection to access private method
         $reflection = new ReflectionClass(Peanut_Webhook_Handler::class);
         $method = $reflection->getMethod('get_product_tier');
-        $method->setAccessible(true);
 
         $tier = $method->invoke($this->handler, $product);
 
@@ -321,7 +320,6 @@ class WebhookHandlerTest extends TestCase {
 
         $reflection = new ReflectionClass(Peanut_Webhook_Handler::class);
         $method = $reflection->getMethod('get_product_tier');
-        $method->setAccessible(true);
 
         $tier = $method->invoke($this->handler, $product);
 
@@ -339,7 +337,6 @@ class WebhookHandlerTest extends TestCase {
 
         $reflection = new ReflectionClass(Peanut_Webhook_Handler::class);
         $method = $reflection->getMethod('get_product_tier');
-        $method->setAccessible(true);
 
         $tier = $method->invoke($this->handler, $product);
 
@@ -357,7 +354,6 @@ class WebhookHandlerTest extends TestCase {
 
         $reflection = new ReflectionClass(Peanut_Webhook_Handler::class);
         $method = $reflection->getMethod('get_product_tier');
-        $method->setAccessible(true);
 
         $tier = $method->invoke($this->handler, $product);
 
@@ -375,7 +371,6 @@ class WebhookHandlerTest extends TestCase {
 
         $reflection = new ReflectionClass(Peanut_Webhook_Handler::class);
         $method = $reflection->getMethod('get_product_tier');
-        $method->setAccessible(true);
 
         $tier = $method->invoke($this->handler, $product);
 
@@ -394,7 +389,6 @@ class WebhookHandlerTest extends TestCase {
 
         $reflection = new ReflectionClass(Peanut_Webhook_Handler::class);
         $method = $reflection->getMethod('get_product_tier');
-        $method->setAccessible(true);
 
         $tier = $method->invoke($this->handler, $product);
 
@@ -413,7 +407,6 @@ class WebhookHandlerTest extends TestCase {
 
         $reflection = new ReflectionClass(Peanut_Webhook_Handler::class);
         $method = $reflection->getMethod('get_product_tier');
-        $method->setAccessible(true);
 
         $tier = $method->invoke($this->handler, $product);
 
@@ -435,7 +428,6 @@ class WebhookHandlerTest extends TestCase {
 
         $reflection = new ReflectionClass(Peanut_Webhook_Handler::class);
         $method = $reflection->getMethod('get_product_tier');
-        $method->setAccessible(true);
 
         $tier = $method->invoke($this->handler, $product);
 
@@ -453,7 +445,6 @@ class WebhookHandlerTest extends TestCase {
 
         $reflection = new ReflectionClass(Peanut_Webhook_Handler::class);
         $method = $reflection->getMethod('get_product_tier');
-        $method->setAccessible(true);
 
         $tier = $method->invoke($this->handler, $product);
 
@@ -475,7 +466,6 @@ class WebhookHandlerTest extends TestCase {
 
         $reflection = new ReflectionClass(Peanut_Webhook_Handler::class);
         $method = $reflection->getMethod('get_product_tier');
-        $method->setAccessible(true);
 
         $tier = $method->invoke($this->handler, $product);
 
@@ -499,7 +489,6 @@ class WebhookHandlerTest extends TestCase {
 
         $reflection = new ReflectionClass(Peanut_Webhook_Handler::class);
         $method = $reflection->getMethod('get_product_tier');
-        $method->setAccessible(true);
 
         $tier = $method->invoke($this->handler, $product);
 
@@ -517,7 +506,6 @@ class WebhookHandlerTest extends TestCase {
 
         $reflection = new ReflectionClass(Peanut_Webhook_Handler::class);
         $method = $reflection->getMethod('get_product_tier');
-        $method->setAccessible(true);
 
         $tier = $method->invoke($this->handler, $product);
 

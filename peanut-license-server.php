@@ -112,17 +112,10 @@ function peanut_serve_plugin_download(): void {
     }
 
     // SECURITY: Verify file is within expected directories (path traversal prevention)
-    $real_file = realpath($file);
-    $real_base = realpath($upload_dir['basedir']);
-    $real_releases = realpath(PEANUT_LICENSE_SERVER_PATH . 'releases');
-
-    $is_valid_path = false;
-    if ($real_file && $real_base && strpos($real_file, $real_base) === 0) {
-        $is_valid_path = true;
-    }
-    if ($real_file && $real_releases && strpos($real_file, $real_releases) === 0) {
-        $is_valid_path = true;
-    }
+    $is_valid_path = peanut_is_path_within_roots($file, [
+        $upload_dir['basedir'],
+        PEANUT_LICENSE_SERVER_PATH . 'releases',
+    ]);
 
     if (!$is_valid_path) {
         error_log(sprintf(

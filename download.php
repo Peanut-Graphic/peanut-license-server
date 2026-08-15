@@ -71,6 +71,11 @@ if (!$file || !file_exists($file)) {
     die('File not found');
 }
 
+if (!peanut_is_path_within_roots($file, [$upload_base, $releases_dir])) {
+    http_response_code(403);
+    die('Access denied');
+}
+
 // Clear any output buffers
 while (ob_get_level()) {
     ob_end_clean();

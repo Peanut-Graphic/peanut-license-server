@@ -5,6 +5,17 @@ All notable changes to Peanut License Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Testing
+
+- PHPUnit now fails the CI gate when a test is risky instead of allowing a false-green result.
+- Removed obsolete reflection accessibility calls that emitted deprecations on PHP 8.5.
+
+### Security
+
+- Legacy self-hosted ZIP delivery now validates real filesystem containment with directory boundaries, rejecting lookalike sibling paths and symlinks that escape trusted release/upload roots.
+
 ## [1.4.2] - 2026-07-05
 
 ### Update delivery
