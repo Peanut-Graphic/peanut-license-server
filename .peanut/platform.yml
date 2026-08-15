@@ -28,10 +28,12 @@ runtimes:
       - { scope: ci, source: .github/workflows/wp-contract.yml, value: "PHP 8.3" }
     production_observation: { status: verified, value: "PHP 8.5.9 on the central production installation", observed_at: "2026-08-15T01:09:00-04:00", evidence: "read-only host interpreter and active-plugin inventory" }
   - name: node
-    baseline: "22"
+    baseline: "22.22.2 with npm 10.9.7"
     declarations:
-      - { scope: dependency, source: frontend/package.json, value: "engines and packageManager missing; stale version 1.3.3" }
-      - { scope: ci, source: .github/workflows/accessibility.yml, value: "Node 20" }
+      - { scope: dependency, source: frontend/package.json and frontend/package-lock.json, value: "Node 22.22.2; npm 10.9.7; stale frontend version 1.3.3 remains a release-identity exception" }
+      - { scope: development, source: .nvmrc, value: "22.22.2" }
+      - { scope: ci, source: .github/workflows/accessibility.yml, value: "Node 22.22.2 with npm 10.9.7 assertion on pull requests and main" }
+      - { scope: test, source: scripts/verify-runtime-contract.cjs, value: "Node, npm, version file, package metadata, lockfile, and CI declarations must remain internally consistent" }
     production_observation: { status: unverified }
   - name: wordpress
     baseline: WordPress 6.0+
@@ -85,13 +87,21 @@ distribution:
   rollback: unknown
 exceptions:
   - id: PAR-207
-    concern: JavaScript runtime and no-lock PHP dependency resolution remain non-reproducible
-    reason: PAR-207 reconciles the PHP 8.0 host floor, PHP 8.1 development resolver floor, exact-minimum required CI, current PHP 8.2, and real WordPress PHP 8.3, but the repository intentionally has no committed Composer lock; frontend CI uses Node 20 and frontend/package.json declares neither engines.node nor packageManager.
-    risk: PHP dependency versions can drift between no-lock CI runs, while local frontend builds and CI can exercise different Node/npm versions.
+    concern: No-lock PHP dependency resolution remains non-reproducible
+    reason: PAR-207 reconciles the PHP 8.0 host floor, PHP 8.1 development resolver floor, exact-minimum required CI, current PHP 8.2, and real WordPress PHP 8.3, but the repository intentionally has no committed Composer lock.
+    risk: PHP dependency versions can drift between no-lock CI runs even when application source is unchanged.
     owner: Peanut Graphic
-    verification: Decide and enforce a no-lock dependency update policy or commit a reviewed lock, then pin fleet Node and npm versions.
+    verification: Decide and enforce a no-lock dependency update policy or commit a reviewed lock.
     review_date: "2026-11-14"
     status: accepted
+  - id: PAR-503
+    concern: The locked frontend dependency graph has no blocking security gate
+    reason: Exact npm 10.9.7 audit reports one high transitive nanoid denial-of-service advisory and one moderate direct DOMPurify XSS advisory across 568 dependencies. Typecheck, accessibility lint, 21 Vitest files with 490 tests, and the 2,587-module production build pass, but no repository workflow runs npm audit.
+    risk: A known vulnerable frontend dependency graph can remain mergeable and be bundled into the production license-management interface.
+    owner: Peanut Graphic
+    verification: Upgrade the affected dependency graph in a separate regression-tested unit and add a blocking locked-dependency audit with an explicit ratchet policy.
+    review_date: "2026-08-22"
+    status: proposed
   - id: PAR-306
     concern: Production runs MariaDB but required CI exercises only MySQL 8
     reason: The live service owns license, activation, audit, security, GDPR, affiliate, webhook, and update tables and performs dbDelta plus hand-written INFORMATION_SCHEMA and ALTER TABLE repair. Production runs MariaDB 10.6.27 with latin1_swedish_ci and a non-strict SQL mode, while the only real WordPress lane uses mysql:8.
@@ -118,12 +128,14 @@ exceptions:
     status: proposed
 verification:
   status: live-verified
-  audited_commit: d89ab52ad1eb63902ac130c9c49d11d12e0e360c
+  audited_commit: 3bdc5d0107948bee2a7e81d37d54efea84522c83
   last_reviewed: "2026-08-15"
   sources:
     - peanut-license-server.php
     - composer.json
     - frontend/package.json
+    - frontend/package-lock.json
+    - .nvmrc
     - includes/class-api-endpoints.php
     - includes/class-update-server.php
     - includes/class-db-migrations.php
@@ -135,6 +147,7 @@ verification:
     - .github/workflows/accessibility.yml
     - .github/workflows/wp-contract.yml
     - scripts/verify-php-runtime.php
+    - scripts/verify-runtime-contract.cjs
     - Peanut-Graphic/peanut-meta:scripts/publish-plugin.sh
     - Peanut-Graphic/peanut-meta:scripts/verify-plugin-release.sh
     - GitHub Release v1.4.3 assets and signed manifest
@@ -145,6 +158,7 @@ verification:
     - Reconcile why WooCommerce/Subscriptions and both declared cron hooks are absent on the central production installation; preserve license/payment data and do not execute jobs without approval.
     - Verify outbound integration state without reading license, customer, payment, option, or credential data.
     - Reconcile the live health response's service version 1.4.3 and plugin_version 1.0.0 with the canonical release version under PAR-405.
-    - Decide the no-lock PHP dependency update policy and align Node/npm declarations under PAR-207 and PAR-205.
+    - Decide the no-lock PHP dependency update policy under PAR-207.
+    - Repair the locked frontend advisory baseline and add a blocking audit under PAR-503.
     - Add production-family activation, migration, drift-repair, and real-WordPress lanes under PAR-306.
     - Curate release contents, reconcile versions, connect signed self-updates, and prove rollback under PAR-405 and PAR-407.

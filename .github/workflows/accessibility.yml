@@ -6,11 +6,15 @@ on:
     paths:
       - 'frontend/**'
       - '.github/workflows/accessibility.yml'
+      - '.nvmrc'
+      - 'scripts/verify-runtime-contract.cjs'
   pull_request:
     branches: [main]
     paths:
       - 'frontend/**'
       - '.github/workflows/accessibility.yml'
+      - '.nvmrc'
+      - 'scripts/verify-runtime-contract.cjs'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -27,9 +31,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22.22.2'
           cache: 'npm'
           cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Verify Node/npm contract
+        working-directory: frontend
+        run: test "$(npm --version)" = "10.9.7" && npm run runtime:verify
 
       - name: Install dependencies
         working-directory: frontend
