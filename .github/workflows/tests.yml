@@ -10,6 +10,45 @@ on:
   pull_request:
 
 jobs:
+  # Public runtime floor. PHPUnit 10 itself requires PHP 8.1, so this lane does
+  # not resolve development dependencies; it proves every tracked PHP file and
+  # the cross-file declaration contract on the exact supported host minimum.
+  php-runtime-minimum:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.0"
+          coverage: none
+      - name: Verify PHP 8.0 runtime declarations
+        run: php scripts/verify-php-runtime.php --expect-runtime=8.0
+      - name: Parse every tracked PHP file on PHP 8.0
+        run: git ls-files -z '*.php' | xargs -0 -n1 php -l
+
+  # Composer's development graph starts at PHP 8.1 because PHPUnit 10 does.
+  # Exercise every self-contained mock suite at that exact floor while keeping
+  # the existing PHP 8.2 coverage/current lane below.
+  php-development-minimum:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.1"
+          coverage: none
+          tools: composer
+      - name: Install dependencies at the development floor
+        run: composer install --no-interaction --prefer-dist
+      - name: Verify PHP 8.1 development declarations
+        run: php scripts/verify-php-runtime.php --expect-development-runtime=8.1
+      - name: Unit tests
+        run: vendor/bin/phpunit --testsuite=Unit
+      - name: Integration tests
+        run: vendor/bin/phpunit --testsuite=Integration
+      - name: Property tests
+        run: vendor/bin/phpunit --testsuite=Property
+
   # Net 2 (security): dependency vulnerability audit. Non-blocking for now
   # (|| true) so a freshly-disclosed advisory in a transitive dep can't wedge
   # the gate; ratchet to blocking once the dep tree is clean and watched.
@@ -37,7 +76,7 @@ jobs:
         run: semgrep --config .peanut/static-rules/peanut-php-footguns.yml includes/ admin/ --error
 
   php-tests:
-    needs: security
+    needs: [php-runtime-minimum, php-development-minimum, security]
     runs-on: ubuntu-latest
     env:
       # Coverage floor for the gated Unit suite (tests/phpunit/unit, ~202
