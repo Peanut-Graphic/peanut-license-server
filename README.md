@@ -1,5 +1,11 @@
 # Peanut License Server
 
+## Development Toolchain
+
+Frontend tooling uses exact Node 22.22.2 and npm 10.9.7. Run `nvm use` from
+the repository root, then `npm ci --legacy-peer-deps` and
+`npm run runtime:verify` from `frontend/` before testing or building.
+
 License management, validation, and update server for Peanut Suite WordPress plugins.
 
 ## Overview
