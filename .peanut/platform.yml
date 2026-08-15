@@ -26,7 +26,7 @@ runtimes:
       - { scope: dependency, source: composer.json, value: "require >=8.0; no platform pin or committed composer.lock" }
       - { scope: ci, source: .github/workflows/tests.yml, value: "PHP 8.2" }
       - { scope: ci, source: .github/workflows/wp-contract.yml, value: "PHP 8.3" }
-    production_observation: { status: unverified }
+    production_observation: { status: verified, value: "PHP 8.5.9 on the central production installation", observed_at: "2026-08-15T01:09:00-04:00", evidence: "read-only host interpreter and active-plugin inventory" }
   - name: node
     baseline: "22"
     declarations:
@@ -38,7 +38,7 @@ runtimes:
     declarations:
       - { scope: dependency, source: peanut-license-server.php, value: "Requires at least 6.0" }
       - { scope: test, source: .github/workflows/wp-contract.yml, value: "WordPress latest" }
-    production_observation: { status: unverified }
+    production_observation: { status: verified, value: "WordPress 6.9.7 on the central production installation", observed_at: "2026-08-15T01:09:00-04:00", evidence: "read-only WP-CLI core-version and active-plugin inventory" }
 databases:
   - name: host-database
     role: transactional
@@ -46,8 +46,8 @@ databases:
     declarations:
       - { scope: dependency, source: peanut-license-server.php and includes/class-db-migrations.php, value: "dbDelta tables plus versioned INFORMATION_SCHEMA and ALTER TABLE migrations on activation and every-request schema drift checks" }
       - { scope: ci, source: .github/workflows/wp-contract.yml, value: "mysql:8 real WordPress REST contract lane" }
-    production_equivalent_test: unknown
-    production_observation: { status: unverified }
+    production_equivalent_test: "no"
+    production_observation: { status: verified, value: "MariaDB 10.6.27, latin1_swedish_ci server collation, SQL mode ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION", observed_at: "2026-08-15T01:09:00-04:00", evidence: "read-only database metadata query; no application rows read" }
 services:
   - kind: web-server
     baseline: WordPress REST licensing, activation, health, and update API
@@ -59,12 +59,17 @@ services:
     declarations:
       - { scope: dependency, source: includes/class-subscription-sync.php, value: "daily bounded WooCommerce subscription reconciliation" }
       - { scope: dependency, source: peanut-license-server.php, value: "ML abuse-model training and maintenance schedules" }
-    production_observation: { status: unverified }
+    production_observation: { status: verified, value: "Daily subscription-sync and weekly ML abuse-training hooks are absent from the central WP-Cron registry", observed_at: "2026-08-15T01:37:00-04:00", evidence: "read-only WP-Cron schedule metadata; no event executed" }
   - kind: other
     baseline: WooCommerce and WooCommerce Subscriptions on the production WordPress site
     declarations:
       - { scope: dependency, source: includes/class-webhook-handler.php and includes/class-subscription-sync.php, value: "orders, renewals, failures, cancellation, expiry, and product-tier events mutate license state" }
-    production_observation: { status: unverified }
+    production_observation: { status: verified, value: "WooCommerce and WooCommerce Subscriptions are not active on the central production installation", observed_at: "2026-08-15T01:09:00-04:00", evidence: "read-only active-plugin slug inventory; no order, license, subscription, or payment data read" }
+  - kind: other
+    baseline: Local ML service for license-abuse scoring and model training
+    declarations:
+      - { scope: dependency, source: includes/class-ml-abuse-detector.php, value: "defaults to http://127.0.0.1:8100 for health, prediction, and training" }
+    production_observation: { status: verified, value: "Loopback /health reports peanut-ml 1.0.0 healthy", observed_at: "2026-08-15T01:37:00-04:00", evidence: "read-only loopback health request; no prediction or training invoked" }
   - kind: other
     baseline: Operator-configured outbound webhook and email integrations
     declarations:
@@ -81,15 +86,15 @@ distribution:
 exceptions:
   - id: PAR-207
     concern: PHP and JavaScript runtime declarations do not define one supported build and host matrix
-    reason: The plugin permits PHP 8.0 without a Composer platform pin or lockfile, CI spans PHP 8.2 and 8.3, frontend CI uses Node 20, and frontend/package.json declares neither engines.node nor packageManager.
+    reason: The plugin permits PHP 8.0 without a Composer platform pin or lockfile, CI spans PHP 8.2 and 8.3, production runs PHP 8.5.9, frontend CI uses Node 20, and frontend/package.json declares neither engines.node nor packageManager.
     risk: Production dependency resolution, tests, local builds, and release assets can exercise materially different runtimes and dependency graphs.
     owner: Peanut Graphic
     verification: Approve and test the supported WordPress PHP matrix, commit a reproducible dependency lock or equivalent policy, and pin fleet Node and npm versions.
     review_date: "2026-11-14"
     status: proposed
   - id: PAR-306
-    concern: Production database family is unverified and required CI exercises only MySQL 8
-    reason: The live service owns license, activation, audit, security, GDPR, affiliate, webhook, and update tables and performs dbDelta plus hand-written INFORMATION_SCHEMA and ALTER TABLE repair, while the only real WordPress lane uses mysql:8.
+    concern: Production runs MariaDB but required CI exercises only MySQL 8
+    reason: The live service owns license, activation, audit, security, GDPR, affiliate, webhook, and update tables and performs dbDelta plus hand-written INFORMATION_SCHEMA and ALTER TABLE repair. Production runs MariaDB 10.6.27 with latin1_swedish_ci and a non-strict SQL mode, while the only real WordPress lane uses mysql:8.
     risk: Production-engine-specific DDL, ENUM, index, collation, migration, or transactional behavior can corrupt or interrupt licensing and payment-linked state without appearing in CI.
     owner: Peanut Graphic
     verification: Inventory the production engine under PAR-309 and run activation, sequential upgrade, drift repair, and REST contracts against every supported MySQL and MariaDB lane.
@@ -113,7 +118,7 @@ exceptions:
     status: proposed
 verification:
   status: live-verified
-  audited_commit: 4a5b1b85324906cf157e445715f1e20139ec1a53
+  audited_commit: d89ab52ad1eb63902ac130c9c49d11d12e0e360c
   last_reviewed: "2026-08-15"
   sources:
     - peanut-license-server.php
@@ -134,8 +139,10 @@ verification:
     - GitHub Release v1.4.3 assets and signed manifest
     - Peanut License Server /updates/check and /updates/info responses for peanut-license-server
     - GET https://peanutgraphic.com/wp-json/peanut-api/v1/health
+    - Read-only production PHP, WordPress, active-plugin, WP-Cron, loopback ML health, MariaDB version, collation, and SQL-mode metadata on 2026-08-15
   outstanding:
-    - Verify live PHP, WordPress, database engine/version, scheduler, WooCommerce, and outbound integration state under PAR-003 and PAR-309 without reading license, customer, payment, or credential data.
+    - Reconcile why WooCommerce/Subscriptions and both declared cron hooks are absent on the central production installation; preserve license/payment data and do not execute jobs without approval.
+    - Verify outbound integration state without reading license, customer, payment, option, or credential data.
     - Reconcile the live health response's service version 1.4.3 and plugin_version 1.0.0 with the canonical release version under PAR-405.
     - Align PHP/dependency and Node/npm declarations under PAR-207 and PAR-205.
     - Add production-family activation, migration, drift-repair, and real-WordPress lanes under PAR-306.
