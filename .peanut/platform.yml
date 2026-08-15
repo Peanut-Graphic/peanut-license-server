@@ -23,8 +23,8 @@ runtimes:
     baseline: WordPress compatibility matrix
     declarations:
       - { scope: dependency, source: peanut-license-server.php, value: "Requires PHP 8.0" }
-      - { scope: dependency, source: composer.json, value: "require >=8.0; no platform pin or committed composer.lock" }
-      - { scope: ci, source: .github/workflows/tests.yml, value: "PHP 8.2" }
+      - { scope: dependency, source: composer.json, value: "runtime require >=8.0; development resolver platform 8.1.0 for PHPUnit 10; no committed composer.lock" }
+      - { scope: ci, source: .github/workflows/tests.yml, value: "required exact PHP 8.0 parser/declaration lane, exact PHP 8.1 full mock suites, and PHP 8.2 security/coverage" }
       - { scope: ci, source: .github/workflows/wp-contract.yml, value: "PHP 8.3" }
     production_observation: { status: verified, value: "PHP 8.5.9 on the central production installation", observed_at: "2026-08-15T01:09:00-04:00", evidence: "read-only host interpreter and active-plugin inventory" }
   - name: node
@@ -85,13 +85,13 @@ distribution:
   rollback: unknown
 exceptions:
   - id: PAR-207
-    concern: PHP and JavaScript runtime declarations do not define one supported build and host matrix
-    reason: The plugin permits PHP 8.0 without a Composer platform pin or lockfile, CI spans PHP 8.2 and 8.3, production runs PHP 8.5.9, frontend CI uses Node 20, and frontend/package.json declares neither engines.node nor packageManager.
-    risk: Production dependency resolution, tests, local builds, and release assets can exercise materially different runtimes and dependency graphs.
+    concern: JavaScript runtime and no-lock PHP dependency resolution remain non-reproducible
+    reason: PAR-207 reconciles the PHP 8.0 host floor, PHP 8.1 development resolver floor, exact-minimum required CI, current PHP 8.2, and real WordPress PHP 8.3, but the repository intentionally has no committed Composer lock; frontend CI uses Node 20 and frontend/package.json declares neither engines.node nor packageManager.
+    risk: PHP dependency versions can drift between no-lock CI runs, while local frontend builds and CI can exercise different Node/npm versions.
     owner: Peanut Graphic
-    verification: Approve and test the supported WordPress PHP matrix, commit a reproducible dependency lock or equivalent policy, and pin fleet Node and npm versions.
+    verification: Decide and enforce a no-lock dependency update policy or commit a reviewed lock, then pin fleet Node and npm versions.
     review_date: "2026-11-14"
-    status: proposed
+    status: accepted
   - id: PAR-306
     concern: Production runs MariaDB but required CI exercises only MySQL 8
     reason: The live service owns license, activation, audit, security, GDPR, affiliate, webhook, and update tables and performs dbDelta plus hand-written INFORMATION_SCHEMA and ALTER TABLE repair. Production runs MariaDB 10.6.27 with latin1_swedish_ci and a non-strict SQL mode, while the only real WordPress lane uses mysql:8.
@@ -134,6 +134,7 @@ verification:
     - .github/workflows/tests.yml
     - .github/workflows/accessibility.yml
     - .github/workflows/wp-contract.yml
+    - scripts/verify-php-runtime.php
     - Peanut-Graphic/peanut-meta:scripts/publish-plugin.sh
     - Peanut-Graphic/peanut-meta:scripts/verify-plugin-release.sh
     - GitHub Release v1.4.3 assets and signed manifest
@@ -144,6 +145,6 @@ verification:
     - Reconcile why WooCommerce/Subscriptions and both declared cron hooks are absent on the central production installation; preserve license/payment data and do not execute jobs without approval.
     - Verify outbound integration state without reading license, customer, payment, option, or credential data.
     - Reconcile the live health response's service version 1.4.3 and plugin_version 1.0.0 with the canonical release version under PAR-405.
-    - Align PHP/dependency and Node/npm declarations under PAR-207 and PAR-205.
+    - Decide the no-lock PHP dependency update policy and align Node/npm declarations under PAR-207 and PAR-205.
     - Add production-family activation, migration, drift-repair, and real-WordPress lanes under PAR-306.
     - Curate release contents, reconcile versions, connect signed self-updates, and prove rollback under PAR-405 and PAR-407.
