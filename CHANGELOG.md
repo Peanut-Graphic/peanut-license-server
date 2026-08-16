@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-07-21
+
+### Security
+- **The license grant is now signed.** `/license/validate` returned plain JSON,
+  which clients cached in licensee-writable options — so a tier could be forged
+  or replayed. `Peanut_License_Signer` lazily generates an Ed25519 keypair
+  (private key in `wp_options`, autoload off) and signs a canonical entitlement
+  bound to the license-key hash, the requesting `site_url`, `issued_at`, and a
+  15-minute TTL.
+- The `signature` block is **additive**: older clients ignore it, so the server
+  half was safe to ship ahead of client-side verification. Suite's half landed
+  separately in 4.2.4. (#28, audit C1b)
+
+
 ### Testing
 
 - PHPUnit now fails the CI gate when a test is risky instead of allowing a false-green result.
