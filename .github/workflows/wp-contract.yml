@@ -64,3 +64,63 @@ jobs:
           # the WP test bootstrap at the composer-installed Yoast polyfills.
           WP_TESTS_PHPUNIT_POLYFILLS_PATH: ${{ github.workspace }}/vendor/yoast/phpunit-polyfills
         run: /tmp/phpunit9.phar -c phpunit.contract-wp.xml
+
+  # Additive rather than a matrix conversion: branch protection requires the
+  # existing exact `wp-contract` context. This second job proves the verified
+  # central-host database family without renaming or weakening that gate.
+  #
+  # Everything except the database service is copied from the job above on
+  # purpose — same PHP, same runner, same suite — so a failure here means the
+  # engine, not an unrelated difference.
+  wp-contract-mariadb:
+    name: wp-contract-mariadb
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.6
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: wordpress_test
+        ports: [ "3306:3306" ]
+        options: >-
+          --health-cmd="mysqladmin ping -proot" --health-interval=5s
+          --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mysqli
+          tools: composer
+
+      - name: Install composer dev dependencies (wp-phpunit, polyfills)
+        # composer.lock is gitignored in this repo, so resolve from composer.json.
+        run: composer update --no-interaction --prefer-dist
+
+      - name: Fetch standalone PHPUnit 9 (WP test lib is PHPUnit 9 only)
+        run: |
+          curl -fsSL -o /tmp/phpunit9.phar https://phar.phpunit.de/phpunit-9.phar
+          chmod +x /tmp/phpunit9.phar
+          /tmp/phpunit9.phar --version
+
+      - name: Fetch shared WP test installer
+        run: |
+          curl -fsSL -o /tmp/install-wp-tests.sh \
+            "https://raw.githubusercontent.com/Peanut-Graphic/peanut-documentation/main/testing-standard/wp-harness/install-wp-tests.sh" \
+          || cp .peanut/wp-harness/install-wp-tests.sh /tmp/install-wp-tests.sh   # vendored fallback (private repo)
+          chmod +x /tmp/install-wp-tests.sh
+
+      - name: Install WordPress test suite
+        env:
+          WP_TESTS_DIR: /tmp/wordpress-tests-lib
+          WP_CORE_DIR: /tmp/wordpress
+        run: /tmp/install-wp-tests.sh wordpress_test root root 127.0.0.1 latest
+
+      - name: REST contract tests (net 7, real WordPress on MariaDB 10.6)
+        env:
+          WP_TESTS_DIR: /tmp/wordpress-tests-lib
+          WP_CORE_DIR: /tmp/wordpress
+          # The standalone phar doesn't auto-load Composer's vendor dir, so point
+          # the WP test bootstrap at the composer-installed Yoast polyfills.
+          WP_TESTS_PHPUNIT_POLYFILLS_PATH: ${{ github.workspace }}/vendor/yoast/phpunit-polyfills
+        run: /tmp/phpunit9.phar -c phpunit.contract-wp.xml
