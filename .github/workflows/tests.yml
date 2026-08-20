@@ -65,6 +65,24 @@ jobs:
       - name: Dependency audit (composer audit)
         run: composer audit || true
 
+      # The frontend had no advisory gate at all, which is why the dompurify
+      # finding reached us through Dependabot rather than through CI.
+      #
+      # Blocking at MODERATE, not high. Verified by execution: with dompurify
+      # pinned to the vulnerable 3.4.12, `npm audit --audit-level=high` exits
+      # 0 — npm grades GHSA-55q2-fjhq-7xh7 "moderate" — so a high gate would
+      # NOT have caught the very advisory it was added for. At moderate it
+      # exits 1 on the vulnerable pin and 0 on the patched tree.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.2"
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+      - name: Dependency audit (npm, blocking)
+        working-directory: frontend
+        run: npm audit --audit-level=moderate
+
       # Net 2 (static): CLASS-007 PHP foot-gun gate. Vendored rule lives at
       # .peanut/static-rules/peanut-php-footguns.yml. BLOCKING (--error): any
       # empty()/!empty() on request input (drops the string "0") or a
