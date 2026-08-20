@@ -47,7 +47,7 @@ databases:
     baseline: Production WordPress MySQL or MariaDB engine and version unverified
     declarations:
       - { scope: dependency, source: peanut-license-server.php and includes/class-db-migrations.php, value: "dbDelta tables plus versioned INFORMATION_SCHEMA and ALTER TABLE migrations on activation and every-request schema drift checks" }
-      - { scope: ci, source: .github/workflows/wp-contract.yml, value: "mysql:8 real WordPress REST contract lane" }
+      - { scope: ci, source: .github/workflows/wp-contract.yml, value: "mysql:8 compatibility and mariadb:10.6 production-family real WordPress REST contract lanes" }
     production_equivalent_test: "no"
     production_observation: { status: verified, value: "MariaDB 10.6.27, latin1_swedish_ci server collation, SQL mode ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION", observed_at: "2026-08-15T01:09:00-04:00", evidence: "read-only database metadata query; no application rows read" }
 services:
@@ -103,11 +103,11 @@ exceptions:
     review_date: "2026-08-22"
     status: proposed
   - id: PAR-306
-    concern: Production runs MariaDB but required CI exercises only MySQL 8
-    reason: The live service owns license, activation, audit, security, GDPR, affiliate, webhook, and update tables and performs dbDelta plus hand-written INFORMATION_SCHEMA and ALTER TABLE repair. Production runs MariaDB 10.6.27 with latin1_swedish_ci and a non-strict SQL mode, while the only real WordPress lane uses mysql:8.
-    risk: Production-engine-specific DDL, ENUM, index, collation, migration, or transactional behavior can corrupt or interrupt licensing and payment-linked state without appearing in CI.
+    concern: The production engine family is now covered, but its exact version, collation, SQL mode, and upgrade history are not reproduced in CI
+    reason: Unlike the distributed plugins, this repository is the live service rather than customer-hosted software, so its production database is a single known host — MariaDB 10.6.27 with latin1_swedish_ci and a non-strict SQL mode. A mariadb:10.6 real WordPress lane now runs beside the mysql:8 compatibility lane, exercising the dbDelta plus hand-written INFORMATION_SCHEMA and ALTER TABLE repair that owns license, activation, audit, security, GDPR, affiliate, webhook, and update tables. The lane pins the 10.6 family rather than the exact 10.6.27 patch, uses the image's default collation and SQL mode rather than production's, and starts from an empty schema rather than the accumulated one.
+    risk: Behavior that depends on the exact patch level, on latin1_swedish_ci, on the non-strict SQL mode, or on state produced by historical upgrades can still corrupt or interrupt licensing and payment-linked data without appearing in CI.
     owner: Peanut Graphic
-    verification: Inventory the production engine under PAR-309 and run activation, sequential upgrade, drift repair, and REST contracts against every supported MySQL and MariaDB lane.
+    verification: Keep both real-WordPress lanes green; pin the lane to the observed production collation and SQL mode, and add a sanitized sequential-upgrade fixture that reaches the current schema the way production did.
     review_date: "2026-11-14"
     status: proposed
   - id: PAR-405
@@ -160,5 +160,5 @@ verification:
     - Reconcile the live health response's service version 1.4.3 and plugin_version 1.0.0 with the canonical release version under PAR-405.
     - Decide the no-lock PHP dependency update policy under PAR-207.
     - Repair the locked frontend advisory baseline and add a blocking audit under PAR-503.
-    - Add production-family activation, migration, drift-repair, and real-WordPress lanes under PAR-306.
+    - Pin the production-family lane to the observed collation and SQL mode and add a sanitized sequential-upgrade fixture under PAR-306.
     - Curate release contents, reconcile versions, connect signed self-updates, and prove rollback under PAR-405 and PAR-407.
