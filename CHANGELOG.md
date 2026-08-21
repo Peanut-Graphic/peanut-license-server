@@ -5,6 +5,30 @@ All notable changes to Peanut License Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.5] - 2026-08-21
+
+### Added
+- **Peanut Festival joins the unified update channel.** `/updates/check` now
+  knows `peanut-festival`, so installs are auto-offered signed releases like
+  the other plugins. Its absence was deliberate while Festival had no updater
+  or signature gate; since Festival 1.3.2 bundles the formflow-core
+  SignedUpdateGate, offered packages are sha256+Ed25519 verified before
+  install. Guarded by a real-WordPress contract test pinning the exact
+  `invalid_plugin` response the 1.3.2 release hit.
+
+## [1.4.4] - 2026-08-21
+
+### Security
+- **Dependency refresh and a now-blocking audit gate.** dompurify → 3.4.14 in
+  the admin frontend; the `composer audit` step no longer carries `|| true`,
+  verified passing against a fresh dependency resolve before the flip (this
+  plugin has no production composer dependencies).
+
+### Fixed
+- **The vendored WordPress test-harness no longer silently tests against
+  trunk** (three-part tag resolution, loud failure for pinned versions, and
+  a readiness check that refuses to lie).
+
 ## [Unreleased]
 
 ## [1.4.3] - 2026-07-21

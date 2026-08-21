@@ -56,6 +56,19 @@ class Peanut_Update_Server {
             'homepage' => 'https://peanutgraphic.com/formflow-lite',
             'description' => 'Lightweight API-integrated enrollment forms for WordPress.',
         ],
+        // Added 2026-08-21. Festival's absence here was deliberate while it
+        // had no updater at all (v1.3.1 shipped as an unsigned zip). Since
+        // 1.3.2 it bundles the formflow-core SignedUpdateGate, so offered
+        // packages are sha256+Ed25519 verified before install -- the
+        // precondition for joining the unified channel.
+        'peanut-festival' => [
+            'name' => 'Peanut Festival',
+            'slug' => 'peanut-festival',
+            'file' => 'peanut-festival/peanut-festival.php',
+            'author' => 'Peanut Graphic',
+            'homepage' => 'https://peanutgraphic.com/peanut-festival',
+            'description' => 'Festival and event management for WordPress.',
+        ],
     ];
 
     /**
