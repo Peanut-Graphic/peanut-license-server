@@ -5,6 +5,8 @@ All notable changes to Peanut License Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
 ## [1.4.5] - 2026-08-21
 
 ### Added
@@ -28,8 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The vendored WordPress test-harness no longer silently tests against
   trunk** (three-part tag resolution, loud failure for pinned versions, and
   a readiness check that refuses to lie).
-
-## [Unreleased]
 
 ## [1.4.3] - 2026-07-21
 
