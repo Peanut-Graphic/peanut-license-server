@@ -49,9 +49,11 @@ jobs:
       - name: Property tests
         run: vendor/bin/phpunit --testsuite=Property
 
-  # Net 2 (security): dependency vulnerability audit. Non-blocking for now
-  # (|| true) so a freshly-disclosed advisory in a transitive dep can't wedge
-  # the gate; ratchet to blocking once the dep tree is clean and watched.
+  # Net 2 (security): dependency vulnerability audit. BLOCKING as of 2026-08-20.
+  # Verified before flipping: a fresh resolve of this plugin's dependencies
+  # reports no advisories. The tree is small and low-risk to gate on -- there
+  # are NO production dependencies at all (composer.json requires only php),
+  # so this audits the three dev tools and nothing that ships to a client.
   security:
     runs-on: ubuntu-latest
     steps:
@@ -63,7 +65,7 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist
       - name: Dependency audit (composer audit)
-        run: composer audit || true
+        run: composer audit
 
       # The frontend had no advisory gate at all, which is why the dompurify
       # finding reached us through Dependabot rather than through CI.
