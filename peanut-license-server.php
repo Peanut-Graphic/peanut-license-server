@@ -3,7 +3,7 @@
  * Plugin Name: Peanut License Server
  * Plugin URI: https://peanutgraphic.com/peanut-suite
  * Description: License management, validation, and update server for Peanut Suite WordPress plugin.
- * Version: 1.4.4
+ * Version: 1.4.5
  * Author: Peanut Graphic
  * Author URI: https://peanutgraphic.com
  * License: GPL-2.0-or-later
@@ -17,7 +17,7 @@
 defined('ABSPATH') || exit;
 
 // Plugin constants
-define('PEANUT_LICENSE_SERVER_VERSION', '1.4.4');
+define('PEANUT_LICENSE_SERVER_VERSION', '1.4.5');
 define('PEANUT_LICENSE_SERVER_PATH', plugin_dir_path(__FILE__));
 define('PEANUT_LICENSE_SERVER_URL', plugin_dir_url(__FILE__));
 define('PEANUT_LICENSE_SERVER_BASENAME', plugin_basename(__FILE__));
