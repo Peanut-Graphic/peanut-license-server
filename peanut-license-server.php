@@ -21,6 +21,44 @@ define('PEANUT_LICENSE_SERVER_VERSION', '1.4.5');
 define('PEANUT_LICENSE_SERVER_PATH', plugin_dir_path(__FILE__));
 define('PEANUT_LICENSE_SERVER_URL', plugin_dir_url(__FILE__));
 define('PEANUT_LICENSE_SERVER_BASENAME', plugin_basename(__FILE__));
+define('PEANUT_LICENSE_SERVER_SIGNING_PUBKEY', 'NtHnWTBLVzCBKMAq9CO8LHDSD9ZfpGV0UloQdgToIwM='); // gitleaks:allow — public Ed25519 verification key
+
+// A release without vendor/ cannot verify its own replacement package. Keep
+// the plugin available, but fail closed by not registering the self-updater.
+if (file_exists(PEANUT_LICENSE_SERVER_PATH . 'vendor/autoload.php')) {
+    require_once PEANUT_LICENSE_SERVER_PATH . 'vendor/autoload.php';
+}
+
+/**
+ * Register the self-update offer and its shared signed-package gate early.
+ */
+function peanut_license_server_register_self_updater(): void {
+    if (!class_exists('\Peanut\FormCore\Update\SignedUpdateGate')) {
+        add_action('admin_notices', function (): void {
+            if (!current_user_can('update_plugins')) {
+                return;
+            }
+
+            echo '<div class="notice notice-error"><p><strong>Peanut License Server:</strong> '
+                . esc_html__('self-update signature verification is unavailable (formflow-core missing from vendor/). Self-updates are disabled; reinstall from an official signed release.', 'peanut-license-server')
+                . '</p></div>';
+        });
+
+        return;
+    }
+
+    require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-self-updater.php';
+
+    (new \Peanut\FormCore\Update\SignedUpdateGate(
+        PEANUT_LICENSE_SERVER_BASENAME,
+        ['peanutgraphic.com', 'github.com'],
+        PEANUT_LICENSE_SERVER_SIGNING_PUBKEY,
+        'peanut-license-server'
+    ))->register();
+
+    new Peanut_License_Self_Updater();
+}
+add_action('plugins_loaded', 'peanut_license_server_register_self_updater', 1);
 
 // Download token signing helpers (extracted so the unit test suite can load
 // them in isolation without booting the full plugin). Must be required before
