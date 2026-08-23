@@ -9,7 +9,7 @@
  * human happened to open wp-admin. Auto-update doesn't re-run the activation
  * hook either.
  *
- * This class moves the check to an always-on early hook (`plugins_loaded`)
+ * This class runs the check during the plugin's always-on `init@0` boot
  * behind a fast `get_option` version gate, and — mirroring peanut-connect's
  * check_db_version() self-heal — re-runs create_tables() (dbDelta) for ALL
  * tables as an idempotent safety net, plus drift detection so a mismatched
@@ -46,14 +46,13 @@ class Peanut_License_DB_Migrations {
     public static $test_create_tables = null;
 
     /**
-     * Register the always-on migration check.
+     * Run the always-on migration check during the plugin's init@0 boot.
      *
-     * `plugins_loaded` fires for every request type (web, REST, AJAX, cron),
-     * unlike `admin_init` which only fires inside wp-admin. Priority 5 so the
-     * schema is healed before `init`-time code that writes to these tables.
+     * The root plugin calls this only after its singleton is fully assigned,
+     * so a required create_tables() pass cannot recursively construct it.
      */
     public static function init(): void {
-        add_action('plugins_loaded', [__CLASS__, 'check_db_version'], 5);
+        self::check_db_version();
     }
 
     /**

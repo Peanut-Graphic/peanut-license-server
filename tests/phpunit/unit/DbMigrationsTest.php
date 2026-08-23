@@ -127,18 +127,19 @@ class DbMigrationsTest extends TestCase {
 
     /**
      * @test
-     * The new migrations trigger is hooked on an always-on early hook so it
-     * fires on REST/AJAX/cron requests, not only wp-admin page loads.
+     * The always-on entry point checks the schema immediately instead of
+     * registering a callback on an already-finished lifecycle hook.
      */
-    public function migration_check_is_hooked_on_an_always_on_hook(): void {
+    public function migration_init_runs_the_check_immediately(): void {
+        update_option('peanut_license_server_db_version', Peanut_License_DB_Migrations::DB_VERSION);
+        $this->markAllColumnsPresent();
         global $_mock_actions;
         $_mock_actions = [];
+
         Peanut_License_DB_Migrations::init();
-        $hooks = array_keys($_mock_actions ?? []);
-        $this->assertTrue(
-            in_array('plugins_loaded', $hooks, true) || in_array('init', $hooks, true),
-            'migration check must hook plugins_loaded or init, not admin_init'
-        );
+
+        $this->assertSame([], $_mock_actions, 'migration init must not register a late hook');
+        $this->assertSame(0, $this->spy->create_tables_calls, 'current schema remains on the cheap path');
     }
 
     private function markAllColumnsPresent(): void {

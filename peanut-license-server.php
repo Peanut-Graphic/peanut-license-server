@@ -254,11 +254,6 @@ final class Peanut_License_Server {
         register_activation_hook(__FILE__, [$this, 'activate']);
         register_deactivation_hook(__FILE__, [$this, 'deactivate']);
 
-        // Check for DB migrations on an always-on early hook (plugins_loaded),
-        // so REST/AJAX/cron requests heal the schema too — not only wp-admin
-        // page loads. Cheap when already current (single option read).
-        Peanut_License_DB_Migrations::init();
-
         // Init
         add_action('init', [$this, 'init']);
         add_action('rest_api_init', [$this, 'register_rest_routes']);
@@ -508,8 +503,8 @@ final class Peanut_License_Server {
      * Check and run database migrations.
      *
      * The migration ladder + drift self-heal now lives in
-     * Peanut_License_DB_Migrations (hooked on plugins_loaded so it fires for
-     * REST/AJAX/cron, not only wp-admin). This thin wrapper is kept for
+     * Peanut_License_DB_Migrations and runs during the plugin's init@0 boot on
+     * REST/AJAX/cron as well as wp-admin. This thin wrapper is kept for
      * backward compatibility with any external caller / WP-CLI usage.
      */
     public function check_db_migrations(): void {
@@ -880,7 +875,16 @@ function peanut_license_server(): Peanut_License_Server {
         dirname(PEANUT_LICENSE_SERVER_BASENAME) . '/languages'
     );
 
-    return Peanut_License_Server::get_instance();
+    $server = Peanut_License_Server::get_instance();
+
+    // The plugin itself begins at init@0, after plugins_loaded has finished.
+    // Initialize lifecycle services now that the singleton is fully assigned;
+    // callbacks they attach to later init priorities remain valid.
+    Peanut_License_DB_Migrations::init();
+    Peanut_Subscription_Sync::init();
+    Peanut_Affiliate_System::init();
+
+    return $server;
 }
 
 // Start the plugin
