@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Fail closed on License Server self-updates.** The plugin now joins its own canonical update channel only when the shared formflow-core verifier is present, pins the Peanut Ed25519 public key and trusted HTTPS package hosts, and rejects unsigned, tampered, wrong-key, or incomplete artifacts before WordPress can install them.
+
 ## [1.4.5] - 2026-08-21
 
 ### Added

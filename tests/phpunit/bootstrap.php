@@ -780,6 +780,7 @@ require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-rate-limiter.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-api-security.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-security-features.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-update-server.php';
+require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-self-updater.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-gdpr-compliance.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-webhook-handler.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-api-endpoints.php';

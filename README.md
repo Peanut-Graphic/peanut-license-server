@@ -14,7 +14,7 @@ Peanut License Server is the central backend for the entire Peanut ecosystem. It
 
 - License generation and management
 - Site activation/deactivation tracking
-- Automatic plugin update distribution
+- Automatic plugin update distribution, including signed fail-closed self-updates
 - WooCommerce integration for e-commerce
 - Security features and audit trails
 - Customer analytics and reporting

@@ -69,6 +69,16 @@ class Peanut_Update_Server {
             'homepage' => 'https://peanutgraphic.com/peanut-festival',
             'description' => 'Festival and event management for WordPress.',
         ],
+        // The server now consumes the same signed channel it publishes. The
+        // canonical publisher already updates peanut_peanut-license-server_version.
+        'peanut-license-server' => [
+            'name' => 'Peanut License Server',
+            'slug' => 'peanut-license-server',
+            'file' => 'peanut-license-server/peanut-license-server.php',
+            'author' => 'Peanut Graphic',
+            'homepage' => 'https://peanutgraphic.com/peanut-license-server',
+            'description' => 'License, subscription, and signed update services for Peanut plugins.',
+        ],
     ];
 
     /**
