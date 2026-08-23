@@ -32,7 +32,7 @@ runtimes:
     declarations:
       - { scope: dependency, source: frontend/package.json and frontend/package-lock.json, value: "Node 22.22.2; npm 10.9.7; stale frontend version 1.3.3 remains a release-identity exception" }
       - { scope: development, source: .nvmrc, value: "22.22.2" }
-      - { scope: ci, source: .github/workflows/accessibility.yml, value: "Node 22.22.2 with npm 10.9.7 assertion on pull requests and main" }
+      - { scope: ci, source: .github/workflows/tests.yml and .github/workflows/accessibility.yml, value: "Node 22.22.2 with npm 10.9.7 assertion, blocking moderate dependency audit, accessibility lint/tests, typecheck, and non-empty production build on pull requests and main" }
       - { scope: test, source: scripts/verify-runtime-contract.cjs, value: "Node, npm, version file, package metadata, lockfile, and CI declarations must remain internally consistent" }
     production_observation: { status: unverified }
   - name: wordpress
@@ -55,7 +55,7 @@ services:
     baseline: WordPress REST licensing, activation, health, and update API
     declarations:
       - { scope: dependency, source: includes/class-api-endpoints.php, value: "peanut-api/v1 routes for licenses, activations, health, updates, and downloads" }
-    production_observation: { status: verified, value: "Apache; public health status ok; service version 1.4.3; plugin_version 1.0.0", observed_at: "2026-08-15T04:23:04Z", evidence: "GET https://peanutgraphic.com/wp-json/peanut-api/v1/health returned HTTP 200" }
+    production_observation: { status: verified, value: "Apache; public health status ok; service version 1.4.5; plugin_version 1.0.0", observed_at: "2026-08-23T03:24:03Z", evidence: "Read-only GET https://www.peanutgraphic.com/wp-json/peanut-api/v1/health returned HTTP 200" }
   - kind: scheduler
     baseline: WordPress cron on the production site
     declarations:
@@ -94,14 +94,6 @@ exceptions:
     verification: Decide and enforce a no-lock dependency update policy or commit a reviewed lock.
     review_date: "2026-11-14"
     status: accepted
-  - id: PAR-503
-    concern: The locked frontend dependency graph has no blocking security gate
-    reason: Exact npm 10.9.7 audit reports one high transitive nanoid denial-of-service advisory and one moderate direct DOMPurify XSS advisory across 568 dependencies. Typecheck, accessibility lint, 21 Vitest files with 490 tests, and the 2,587-module production build pass, but no repository workflow runs npm audit.
-    risk: A known vulnerable frontend dependency graph can remain mergeable and be bundled into the production license-management interface.
-    owner: Peanut Graphic
-    verification: Upgrade the affected dependency graph in a separate regression-tested unit and add a blocking locked-dependency audit with an explicit ratchet policy.
-    review_date: "2026-08-22"
-    status: proposed
   - id: PAR-306
     concern: The production engine family is now covered, but its exact version, collation, SQL mode, and upgrade history are not reproduced in CI
     reason: Unlike the distributed plugins, this repository is the live service rather than customer-hosted software, so its production database is a single known host — MariaDB 10.6.27 with latin1_swedish_ci and a non-strict SQL mode. A mariadb:10.6 real WordPress lane now runs beside the mysql:8 compatibility lane, exercising the dbDelta plus hand-written INFORMATION_SCHEMA and ALTER TABLE repair that owns license, activation, audit, security, GDPR, affiliate, webhook, and update tables. The lane pins the 10.6 family rather than the exact 10.6.27 patch, uses the image's default collation and SQL mode rather than production's, and starts from an empty schema rather than the accumulated one.
@@ -112,7 +104,7 @@ exceptions:
     status: proposed
   - id: PAR-405
     concern: Release package scope, version metadata, self-update advertisement, and rollback evidence drift
-    reason: The plugin and signed release are 1.4.3 while frontend metadata reports 1.3.3 and the live health response reports service version 1.4.3 but plugin_version 1.0.0. The full-tree v1.4.3 ZIP includes tests, workflows, frontend sources and coverage artifacts, and a nested 2 MB peanut-suite.zip, while the live update API rejects peanut-license-server as unknown and the publisher has no rollback assertion.
+    reason: The plugin, signed release, and live service are 1.4.5 while frontend metadata reports 1.3.3 and the public health response still reports plugin_version 1.0.0. The full-tree v1.4.5 ZIP has the published SHA-256, matches its signed Ed25519 manifest, and still includes tests, workflows, frontend sources and coverage artifacts, plus a nested peanut-suite.zip; the live update API rejects peanut-license-server as unknown and the publisher has no rollback assertion.
     risk: Releases carry unnecessary development artifacts and a stale nested product, deployed servers cannot discover their own official update, and an incident has no source-verifiable rollback control.
     owner: Peanut Graphic
     verification: Define a curated required-file contract, establish one version source, add the server to its own update product registry or document another authoritative update path, and add a tested rollback assertion.
@@ -128,10 +120,12 @@ exceptions:
     status: proposed
 verification:
   status: live-verified
-  audited_commit: 3bdc5d0107948bee2a7e81d37d54efea84522c83
-  last_reviewed: "2026-08-15"
+  audited_commit: 69aa0fce2afdb9d06d2f80c638452bf7de82b6ad
+  last_reviewed: "2026-08-22"
   sources:
     - peanut-license-server.php
+    - requirements-dependency-audit.txt
+    - requirements-dependency-audit.lock
     - composer.json
     - frontend/package.json
     - frontend/package-lock.json
@@ -150,15 +144,14 @@ verification:
     - scripts/verify-runtime-contract.cjs
     - Peanut-Graphic/peanut-meta:scripts/publish-plugin.sh
     - Peanut-Graphic/peanut-meta:scripts/verify-plugin-release.sh
-    - GitHub Release v1.4.3 assets and signed manifest
+    - GitHub Release v1.4.5 assets, hashes, signed manifest, and read-only ZIP content inventory
     - Peanut License Server /updates/check and /updates/info responses for peanut-license-server
     - GET https://peanutgraphic.com/wp-json/peanut-api/v1/health
     - Read-only production PHP, WordPress, active-plugin, WP-Cron, loopback ML health, MariaDB version, collation, and SQL-mode metadata on 2026-08-15
   outstanding:
     - Reconcile why WooCommerce/Subscriptions and both declared cron hooks are absent on the central production installation; preserve license/payment data and do not execute jobs without approval.
     - Verify outbound integration state without reading license, customer, payment, option, or credential data.
-    - Reconcile the live health response's service version 1.4.3 and plugin_version 1.0.0 with the canonical release version under PAR-405.
+    - Reconcile why the live health response agrees on service version 1.4.5 but still reports plugin_version 1.0.0 under PAR-405.
     - Decide the no-lock PHP dependency update policy under PAR-207.
-    - Repair the locked frontend advisory baseline and add a blocking audit under PAR-503.
     - Pin the production-family lane to the observed collation and SQL mode and add a sanitized sequential-upgrade fixture under PAR-306.
     - Curate release contents, reconcile versions, connect signed self-updates, and prove rollback under PAR-405 and PAR-407.
