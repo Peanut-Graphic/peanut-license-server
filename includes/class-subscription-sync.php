@@ -600,6 +600,3 @@ class Peanut_Subscription_Sync {
         ]);
     }
 }
-
-// Initialize
-add_action('plugins_loaded', ['Peanut_Subscription_Sync', 'init'], 20);

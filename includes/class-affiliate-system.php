@@ -848,6 +848,3 @@ class Peanut_Affiliate_System {
         dbDelta($payouts_sql);
     }
 }
-
-// Initialize
-add_action('plugins_loaded', ['Peanut_Affiliate_System', 'init']);
