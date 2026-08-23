@@ -67,6 +67,33 @@ jobs:
       - name: Dependency audit (composer audit)
         run: composer audit
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install locked Python auditor
+        run: |
+          python -m venv "$RUNNER_TEMP/dependency-audit-venv"
+          "$RUNNER_TEMP/dependency-audit-venv/bin/python" -m pip install \
+            --require-hashes \
+            --no-deps \
+            -r requirements-dependency-audit.lock
+
+      - name: Audit the locked Python auditor
+        run: |
+          "$RUNNER_TEMP/dependency-audit-venv/bin/pip-audit" \
+            -r requirements-dependency-audit.lock \
+            --no-deps \
+            --disable-pip
+
+      - name: Audit the locked platform validator
+        working-directory: .peanut/platform
+        run: |
+          "$RUNNER_TEMP/dependency-audit-venv/bin/pip-audit" \
+            -r requirements.lock \
+            --no-deps \
+            --disable-pip
+
       # The frontend had no advisory gate at all, which is why the dompurify
       # finding reached us through Dependabot rather than through CI.
       #

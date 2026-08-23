@@ -52,6 +52,18 @@ jobs:
         working-directory: frontend
         run: npm run test:a11y
 
+      - name: Typecheck frontend
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Build production frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Require non-empty production artifact
+        working-directory: frontend
+        run: test -s ../assets/dist/js/main.js && test -s ../assets/dist/css/main.css
+
       # Kept without an upload step. `test:a11y` runs only the a11y subset, so
       # this is the one step here that exercises the FULL suite — the coverage
       # flag is now incidental to that, not the point.
