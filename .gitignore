@@ -4,7 +4,6 @@ node_modules/
 vendor/
 
 # Lock files
-composer.lock
 frontend/package-lock.json
 
 # Testing
