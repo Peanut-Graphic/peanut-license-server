@@ -79,20 +79,19 @@ jobs:
             --no-deps \
             -r requirements-dependency-audit.lock
 
+      - name: Validate dependency-audit transport contract
+        run: |
+          bash scripts/tests/dependency-audit-transport.test.sh
+          bash scripts/tests/dependency-audit-workflow.test.sh
+
       - name: Audit the locked Python auditor
         run: |
-          "$RUNNER_TEMP/dependency-audit-venv/bin/pip-audit" \
-            -r requirements-dependency-audit.lock \
-            --no-deps \
-            --disable-pip
+          bash "$GITHUB_WORKSPACE/scripts/run-pip-audit.sh" "$RUNNER_TEMP/dependency-audit-venv/bin/pip-audit" -r requirements-dependency-audit.lock --no-deps --disable-pip
 
       - name: Audit the locked platform validator
         working-directory: .peanut/platform
         run: |
-          "$RUNNER_TEMP/dependency-audit-venv/bin/pip-audit" \
-            -r requirements.lock \
-            --no-deps \
-            --disable-pip
+          bash "$GITHUB_WORKSPACE/scripts/run-pip-audit.sh" "$RUNNER_TEMP/dependency-audit-venv/bin/pip-audit" -r requirements.lock --no-deps --disable-pip
 
       # The frontend had no advisory gate at all, which is why the dompurify
       # finding reached us through Dependabot rather than through CI.
