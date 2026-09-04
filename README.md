@@ -1,5 +1,7 @@
 # Peanut License Server
 
+> **Dependency updates:** `renovate.json` extends `local>peanutgraphic/renovate-config`, but Renovate is not installed on the Peanut-Graphic GitHub org, so it has never opened a PR here. `.github/dependabot.yml` provides automated dependency PRs instead — see that file to add/adjust ecosystems.
+
 ## Development Toolchain
 
 Frontend tooling uses exact Node 22.22.2 and npm 10.9.7. Run `nvm use` from
