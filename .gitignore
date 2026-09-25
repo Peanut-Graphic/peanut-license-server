@@ -43,3 +43,6 @@ npm-debug.log*
 # --- added by gitignore-sync on 2026-08-03 ---
 .cursor/*
 !.cursor/rules/
+
+# TypeScript incremental compilation caches are regenerated locally.
+*.tsbuildinfo
