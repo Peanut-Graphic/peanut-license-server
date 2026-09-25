@@ -37,6 +37,17 @@ updates:
     labels:
       - "dependencies"
       - "npm"
+    # Majors this frontend's lint toolchain cannot take yet. Both fail `npm install`
+    # with ERESOLVE, seen 2026-09-24 on this fleet's own Dependabot PRs:
+    #   typescript 7  - typescript-eslint@8 does not support it
+    #   eslint 10     - eslint-plugin-jsx-a11y@6 peers eslint <= 9
+    # bench-app carries the same two rules. Remove them once those plugins ship
+    # support; until then Dependabot re-proposes both every week.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-patch:
         patterns:
