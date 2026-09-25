@@ -12,6 +12,10 @@ on:
   push: { branches: [ main ] }
   pull_request:
 
+env:
+  PHPUNIT_PHAR_URL: https://phar.phpunit.de/phpunit-9.6.37.phar
+  PHPUNIT_PHAR_SHA256: 3466327b9c9f5047cfd71acc4d19620fa4cc943e7590b8f32a3ac173fd56c363
+
 jobs:
   wp-contract:
     runs-on: ubuntu-latest
@@ -27,6 +31,8 @@ jobs:
           --health-timeout=5s --health-retries=10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify PHPUnit PHAR source lock
+        run: bash scripts/tests/phpunit-phar-lock.test.sh
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: "8.3"
@@ -39,7 +45,9 @@ jobs:
 
       - name: Fetch standalone PHPUnit 9 (WP test lib is PHPUnit 9 only)
         run: |
-          curl -fsSL -o /tmp/phpunit9.phar https://phar.phpunit.de/phpunit-9.phar
+          curl -fsSL -o /tmp/phpunit9.phar "$PHPUNIT_PHAR_URL"
+          printf '%s  %s\n' "$PHPUNIT_PHAR_SHA256" /tmp/phpunit9.phar \
+            | sha256sum --check --strict
           chmod +x /tmp/phpunit9.phar
           /tmp/phpunit9.phar --version
 
@@ -100,6 +108,8 @@ jobs:
           --health-timeout=5s --health-retries=10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify PHPUnit PHAR source lock
+        run: bash scripts/tests/phpunit-phar-lock.test.sh
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: "8.3"
@@ -112,7 +122,9 @@ jobs:
 
       - name: Fetch standalone PHPUnit 9 (WP test lib is PHPUnit 9 only)
         run: |
-          curl -fsSL -o /tmp/phpunit9.phar https://phar.phpunit.de/phpunit-9.phar
+          curl -fsSL -o /tmp/phpunit9.phar "$PHPUNIT_PHAR_URL"
+          printf '%s  %s\n' "$PHPUNIT_PHAR_SHA256" /tmp/phpunit9.phar \
+            | sha256sum --check --strict
           chmod +x /tmp/phpunit9.phar
           /tmp/phpunit9.phar --version
 
