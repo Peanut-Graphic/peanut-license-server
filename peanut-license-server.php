@@ -367,7 +367,7 @@ final class Peanut_License_Server {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             expires_at DATETIME DEFAULT NULL,
             UNIQUE KEY unique_license_key (license_key),
-            KEY idx_license_key_hash (license_key_hash),
+            UNIQUE KEY unique_license_key_hash (license_key_hash),
             KEY idx_customer_email (customer_email),
             KEY idx_status (status),
             KEY idx_user_id (user_id),

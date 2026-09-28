@@ -88,9 +88,9 @@ class Peanut_GDPR_Compliance {
         $validation_logs = [];
         if ($wpdb->get_var("SHOW TABLES LIKE '{$validation_logs_table}'")) {
             $validation_logs = $wpdb->get_results($wpdb->prepare(
-                "SELECT license_key, site_url, ip_address, status, error_code, created_at
+                "SELECT license_key_partial, site_url, ip_address, status, error_code, created_at
                  FROM {$validation_logs_table}
-                 WHERE license_key IN (SELECT license_key FROM {$licenses_table} WHERE customer_email = %s)
+                 WHERE license_key_hash IN (SELECT license_key_hash FROM {$licenses_table} WHERE customer_email = %s)
                  ORDER BY created_at DESC
                  LIMIT 1000",
                 $email
@@ -248,9 +248,9 @@ class Peanut_GDPR_Compliance {
         $wpdb->query('START TRANSACTION');
 
         try {
-            // Get license IDs and keys before deletion
+            // Get license IDs and key hashes before deletion
             $licenses = $wpdb->get_results($wpdb->prepare(
-                "SELECT id, license_key FROM {$licenses_table} WHERE customer_email = %s",
+                "SELECT id, license_key_hash FROM {$licenses_table} WHERE customer_email = %s",
                 $email
             ));
 
@@ -260,9 +260,9 @@ class Peanut_GDPR_Compliance {
             }
 
             $license_ids = wp_list_pluck($licenses, 'id');
-            $license_keys = wp_list_pluck($licenses, 'license_key');
+            $license_hashes = wp_list_pluck($licenses, 'license_key_hash');
             $license_ids_placeholder = implode(',', array_fill(0, count($license_ids), '%d'));
-            $license_keys_placeholder = implode(',', array_fill(0, count($license_keys), '%s'));
+            $license_hashes_placeholder = implode(',', array_fill(0, count($license_hashes), '%s'));
 
             // Count activations before deletion
             $activations_count = $wpdb->get_var($wpdb->prepare(
@@ -285,8 +285,8 @@ class Peanut_GDPR_Compliance {
             // Delete validation logs
             if ($wpdb->get_var("SHOW TABLES LIKE '{$validation_logs_table}'")) {
                 $wpdb->query($wpdb->prepare(
-                    "DELETE FROM {$validation_logs_table} WHERE license_key IN ({$license_keys_placeholder})",
-                    ...$license_keys
+                    "DELETE FROM {$validation_logs_table} WHERE license_key_hash IN ({$license_hashes_placeholder})",
+                    ...$license_hashes
                 ));
             }
 
