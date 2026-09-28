@@ -31,7 +31,7 @@ class Peanut_License_DB_Migrations {
      * migration changes the schema, and add any new columns to
      * tracked_columns() below so drift detection covers them.
      */
-    const DB_VERSION = '1.6.0';
+    const DB_VERSION = '1.7.0';
 
     /** Option key holding the installed schema version. */
     const DB_VERSION_OPTION = 'peanut_license_server_db_version';
@@ -161,10 +161,67 @@ class Peanut_License_DB_Migrations {
             ");
         }
 
+        // v1.7.0: license_key_hash is the only lookup column.
+        self::backfill_license_key_hashes();
+        self::ensure_unique_license_key_hash();
+
         // v1.6.0: full-table dbDelta safety net (covers tables that previously
         // had NO upgrade coverage at all — licenses, update_logs, validation
         // logs, webhook logs, audit, security, GDPR, bundles, affiliate).
         self::run_create_tables();
+    }
+
+    /**
+     * Give every license a hash of its normalized key. Rows created before
+     * v1.3.0 may have an empty hash, and any row whose hash disagrees with its
+     * key would become unreachable once lookups stopped reading the plaintext
+     * column. Idempotent: a correct row never matches the WHERE clause.
+     */
+    private static function backfill_license_key_hashes(): void {
+        global $wpdb;
+        $licenses = $wpdb->prefix . 'peanut_licenses';
+
+        $wpdb->query("UPDATE {$licenses}
+            SET license_key_hash = SHA2(UPPER(TRIM(license_key)), 256)
+            WHERE license_key IS NOT NULL AND license_key <> ''
+              AND (license_key_hash IS NULL OR license_key_hash = ''
+                   OR license_key_hash <> SHA2(UPPER(TRIM(license_key)), 256))");
+    }
+
+    /**
+     * Replace the plain idx_license_key_hash with a UNIQUE key so the hash
+     * carries the uniqueness guarantee the plaintext column used to. Skips
+     * (and logs) when duplicate hashes exist rather than failing the upgrade;
+     * those rows need a human.
+     */
+    private static function ensure_unique_license_key_hash(): void {
+        global $wpdb;
+        $licenses = $wpdb->prefix . 'peanut_licenses';
+
+        $non_unique = $wpdb->get_var($wpdb->prepare(
+            "SELECT MIN(NON_UNIQUE) FROM INFORMATION_SCHEMA.STATISTICS
+             WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'license_key_hash'",
+            $wpdb->dbname ?? '',
+            $licenses
+        ));
+        if ($non_unique !== null && (string) $non_unique === '0') {
+            return; // Already unique.
+        }
+
+        $duplicates = (int) $wpdb->get_var("SELECT COUNT(*) FROM (
+            SELECT license_key_hash FROM {$licenses}
+            GROUP BY license_key_hash HAVING COUNT(*) > 1) AS dupes");
+        if ($duplicates > 0) {
+            if (class_exists('Peanut_Logger')) {
+                Peanut_Logger::error('Duplicate license key hashes; unique index not added', [
+                    'duplicate_hashes' => $duplicates,
+                ]);
+            }
+            return;
+        }
+
+        $drop = $non_unique !== null ? 'DROP INDEX idx_license_key_hash, ' : '';
+        $wpdb->query("ALTER TABLE {$licenses} {$drop}ADD UNIQUE KEY unique_license_key_hash (license_key_hash)");
     }
 
     /**

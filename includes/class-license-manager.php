@@ -118,10 +118,13 @@ class Peanut_License_Manager {
     }
 
     /**
-     * Hash a license key
+     * Hash a license key. The hash is the only lookup column, so the key is
+     * normalized first: keys are issued uppercase, and clients have always
+     * been allowed to send them in any case (the old plaintext comparison
+     * was case-insensitive under MySQL's default collation).
      */
     public static function hash_license_key(string $key): string {
-        return hash('sha256', $key);
+        return hash('sha256', strtoupper(trim($key)));
     }
 
     /**
@@ -184,7 +187,8 @@ class Peanut_License_Manager {
     }
 
     /**
-     * Get license by key
+     * Get license by key. Looks up by hash only; the plaintext column is
+     * never queried (it is scheduled for removal).
      */
     public static function get_by_key(string $key): ?object {
         global $wpdb;
@@ -192,8 +196,7 @@ class Peanut_License_Manager {
 
         $license = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM {$table} WHERE license_key = %s OR license_key_hash = %s",
-                $key,
+                "SELECT * FROM {$table} WHERE license_key_hash = %s",
                 self::hash_license_key($key)
             )
         );

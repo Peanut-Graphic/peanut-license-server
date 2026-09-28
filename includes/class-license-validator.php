@@ -155,7 +155,7 @@ class Peanut_License_Validator {
      * Get cache key for license validation
      */
     public static function get_cache_key(string $license_key): string {
-        return 'peanut_lic_' . md5($license_key);
+        return 'peanut_lic_' . Peanut_License_Manager::hash_license_key($license_key);
     }
 
     /**

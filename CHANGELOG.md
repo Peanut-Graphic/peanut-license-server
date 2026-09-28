@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - **Fail closed on License Server self-updates.** The plugin now joins its own canonical update channel only when the shared formflow-core verifier is present, pins the Peanut Ed25519 public key and trusted HTTPS package hosts, and rejects unsigned, tampered, wrong-key, or incomplete artifacts before WordPress can install them.
+- **License lookups use the key hash only.** `get_by_key()` no longer queries the plaintext `license_key` column; keys are normalized (trim + uppercase) before hashing, preserving the case-insensitive matching clients always got from MySQL's collation. Schema 1.7.0 backfills empty or stale hashes from the normalized key and replaces `idx_license_key_hash` with `UNIQUE KEY unique_license_key_hash` (skipped and logged if duplicate hashes exist). The validation cache key is now derived from the same hash instead of `md5()` of the plaintext. This is phase 1 of retiring the plaintext column; storage and display are unchanged.
+
+### Fixed
+- **GDPR export and erasure now reach validation logs.** Both queried a `license_key` column the validation-logs table has never had, so the query failed silently: exports omitted validation history and erasure committed without deleting it (IP addresses and user agents included). They now match on `license_key_hash`.
 
 ## [1.4.5] - 2026-08-21
 
