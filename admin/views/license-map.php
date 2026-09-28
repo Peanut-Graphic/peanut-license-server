@@ -37,6 +37,7 @@ foreach ($products as $slug => $product) {
         WHERE l.status != 'revoked'
         ORDER BY l.tier, l.created_at DESC
     "));
+    Peanut_License_Key_Vault::reveal_rows($licenses);
 
     $tiers = ['free' => [], 'pro' => [], 'agency' => []];
 

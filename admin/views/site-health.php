@@ -73,9 +73,9 @@ $query = "
 ";
 
 if (!empty($params)) {
-    $sites = $wpdb->get_results($wpdb->prepare($query, $params));
+    $sites = Peanut_License_Key_Vault::reveal_rows($wpdb->get_results($wpdb->prepare($query, $params)));
 } else {
-    $sites = $wpdb->get_results($query);
+    $sites = Peanut_License_Key_Vault::reveal_rows($wpdb->get_results($query));
 }
 
 // Check for sites that haven't reported in 7 days.
