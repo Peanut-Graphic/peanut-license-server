@@ -63,6 +63,8 @@ class Peanut_GDPR_Compliance {
             return null;
         }
 
+        Peanut_License_Key_Vault::reveal_rows($licenses);
+
         $license_ids = wp_list_pluck($licenses, 'id');
         $license_ids_placeholder = implode(',', array_fill(0, count($license_ids), '%d'));
 
@@ -86,14 +88,16 @@ class Peanut_GDPR_Compliance {
 
         // Get validation logs
         $validation_logs = [];
-        if ($wpdb->get_var("SHOW TABLES LIKE '{$validation_logs_table}'")) {
+        $log_hashes = self::validation_log_hashes($licenses);
+        if ($log_hashes && $wpdb->get_var("SHOW TABLES LIKE '{$validation_logs_table}'")) {
+            $hash_placeholders = implode(',', array_fill(0, count($log_hashes), '%s'));
             $validation_logs = $wpdb->get_results($wpdb->prepare(
                 "SELECT license_key_partial, site_url, ip_address, status, error_code, created_at
                  FROM {$validation_logs_table}
-                 WHERE license_key_hash IN (SELECT license_key_hash FROM {$licenses_table} WHERE customer_email = %s)
+                 WHERE license_key_hash IN ({$hash_placeholders})
                  ORDER BY created_at DESC
                  LIMIT 1000",
-                $email
+                ...$log_hashes
             ));
         }
 
@@ -227,6 +231,28 @@ class Peanut_GDPR_Compliance {
     }
 
     /**
+     * Every hash a validation log row for these licenses may carry: the
+     * license's current lookup hash plus, when the key is readable, both the
+     * keyed and legacy hashes (logs written before the vault sweep keep the
+     * legacy SHA-256).
+     *
+     * @param object[] $licenses rows with license_key (revealed) and optionally license_key_hash
+     * @return string[]
+     */
+    private static function validation_log_hashes(array $licenses): array {
+        $hashes = [];
+        foreach ($licenses as $license) {
+            if (!empty($license->license_key_hash)) {
+                $hashes[] = (string) $license->license_key_hash;
+            }
+            if (!empty($license->license_key)) {
+                array_push($hashes, ...Peanut_License_Key_Vault::candidate_hashes((string) $license->license_key));
+            }
+        }
+        return array_values(array_unique($hashes));
+    }
+
+    /**
      * Delete customer data completely (GDPR right to erasure)
      */
     public static function delete_customer_data(string $email): array {
@@ -250,7 +276,7 @@ class Peanut_GDPR_Compliance {
         try {
             // Get license IDs and key hashes before deletion
             $licenses = $wpdb->get_results($wpdb->prepare(
-                "SELECT id, license_key_hash FROM {$licenses_table} WHERE customer_email = %s",
+                "SELECT id, license_key, license_key_hash FROM {$licenses_table} WHERE customer_email = %s",
                 $email
             ));
 
@@ -260,7 +286,7 @@ class Peanut_GDPR_Compliance {
             }
 
             $license_ids = wp_list_pluck($licenses, 'id');
-            $license_hashes = wp_list_pluck($licenses, 'license_key_hash');
+            $license_hashes = self::validation_log_hashes(Peanut_License_Key_Vault::reveal_rows($licenses));
             $license_ids_placeholder = implode(',', array_fill(0, count($license_ids), '%d'));
             $license_hashes_placeholder = implode(',', array_fill(0, count($license_hashes), '%s'));
 

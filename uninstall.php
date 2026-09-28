@@ -76,3 +76,4 @@ delete_option('peanut_webhook_endpoints');
 // Clear any scheduled events
 wp_clear_scheduled_hook('peanut_license_cleanup');
 wp_clear_scheduled_hook('peanut_process_expired_licenses');
+wp_clear_scheduled_hook('peanut_license_key_sweep');

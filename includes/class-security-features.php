@@ -505,11 +505,11 @@ class Peanut_Security_Features {
         $table = self::get_table_name();
         $licenses_table = $wpdb->prefix . 'peanut_licenses';
 
-        return $wpdb->get_results("
+        return Peanut_License_Key_Vault::reveal_rows($wpdb->get_results("
             SELECT r.*, l.license_key, l.customer_email, l.tier, l.status
             FROM {$table} r
             JOIN {$licenses_table} l ON r.license_id = l.id
             ORDER BY r.updated_at DESC
-        ");
+        "));
     }
 }

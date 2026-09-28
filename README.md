@@ -78,11 +78,32 @@ When WooCommerce is active, the plugin:
 
 ## Security Features
 
+- License keys encrypted at rest with keyed lookup hashes (see below)
 - Rate limiting on API endpoints
 - IP-based validation and blocking
 - Domain verification
 - Hardware fingerprinting (optional)
 - Comprehensive audit logging
+
+## License Key Encryption
+
+License keys are bearer credentials. With a secret configured, the server
+stores them encrypted (XChaCha20-Poly1305) and looks them up by an
+HMAC-SHA256 of the normalized key, so a database leak exposes neither the keys
+nor a brute-forceable hash. Customers and admins still see their keys.
+
+Enable it on the server (the secret is generated there and never printed):
+
+```bash
+wp config set PEANUT_LICENSE_KEY_SECRET "$(php -r 'echo base64_encode(random_bytes(32));')" --type=constant
+wp peanut-license encrypt-keys   # or let the hourly sweep do it
+```
+
+**Copy the secret into the password manager before running the sweep.**
+Losing it makes every encrypted key unrecoverable and every license fail
+validation. Changing it has the same effect; Site Health reports a mismatch
+and the sweep refuses to run. Without the secret the server keeps working
+with plaintext storage and Site Health recommends enabling it.
 
 ## CLI Commands
 
@@ -98,6 +119,9 @@ wp peanut-license validate --key=XXXX-XXXX-XXXX-XXXX
 
 # Revoke a license
 wp peanut-license revoke --key=XXXX-XXXX-XXXX-XXXX
+
+# Encrypt stored keys (requires PEANUT_LICENSE_KEY_SECRET)
+wp peanut-license encrypt-keys
 ```
 
 ## File Structure

@@ -52,8 +52,8 @@ Primary table for license keys and their metadata.
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | BIGINT UNSIGNED | Primary key |
-| `license_key` | VARCHAR(64) | Formatted license key (XXXX-XXXX-XXXX-XXXX) |
-| `license_key_hash` | VARCHAR(64) | SHA-256 hash for lookups |
+| `license_key` | VARCHAR(128) | Key encrypted at rest (`plk1:` + base64 XChaCha20-Poly1305) when `PEANUT_LICENSE_KEY_SECRET` is set; plaintext otherwise. Never queried. |
+| `license_key_hash` | VARCHAR(64) | Lookup hash of the normalized key: HMAC-SHA256 with the vault secret, legacy SHA-256 without it (or before the sweep) |
 | `order_id` | BIGINT UNSIGNED | WooCommerce order ID (nullable) |
 | `subscription_id` | BIGINT UNSIGNED | WooCommerce subscription ID (nullable) |
 | `user_id` | BIGINT UNSIGNED | WordPress user ID (nullable) |
@@ -68,8 +68,7 @@ Primary table for license keys and their metadata.
 | `expires_at` | DATETIME | Expiration date (nullable for lifetime) |
 
 **Indexes:**
-- `unique_license_key` (license_key)
-- `idx_license_key_hash` (license_key_hash)
+- `unique_license_key_hash` (license_key_hash, UNIQUE; schema 1.7.0)
 - `idx_customer_email` (customer_email)
 - `idx_status` (status)
 - `idx_user_id` (user_id)

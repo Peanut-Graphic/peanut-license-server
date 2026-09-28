@@ -108,7 +108,7 @@ class LicenseKeyHashLookupTest extends TestCase {
         $lookups = $this->spy->matching('peanut_licenses');
         $this->assertCount(1, $lookups);
         $this->assertStringContainsString(
-            "license_key_hash = '" . hash('sha256', 'ABCD-EF01-2345-6789') . "'",
+            "license_key_hash IN ('" . hash('sha256', 'ABCD-EF01-2345-6789') . "')",
             $lookups[0]
         );
         $this->assertStringNotContainsString('abcd-ef01-2345-6789', $lookups[0], 'plaintext key must never reach SQL');
@@ -175,13 +175,15 @@ class LicenseKeyHashLookupTest extends TestCase {
     /** @test */
     public function gdpr_export_reaches_validation_logs_through_the_hash(): void {
         $this->spy->vars['SHOW TABLES'] = 'wp_peanut_validation_logs';
-        $this->spy->results['FROM wp_peanut_licenses'] = [(object) ['id' => 7]];
+        $this->spy->results['FROM wp_peanut_licenses'] = [
+            (object) ['id' => 7, 'license_key' => 'ABCD-EF01-2345-6789'],
+        ];
 
         Peanut_GDPR_Compliance::export_customer_data('person@example.invalid');
 
         $q = $this->spy->matching('FROM wp_peanut_validation_logs');
         $this->assertCount(1, $q);
-        $this->assertStringContainsString('license_key_hash IN (SELECT license_key_hash FROM wp_peanut_licenses', $q[0]);
+        $this->assertStringContainsString("license_key_hash IN ('" . hash('sha256', 'ABCD-EF01-2345-6789') . "')", $q[0]);
         $this->assertDoesNotMatchRegularExpression('/SELECT license_key,/', $q[0], 'validation logs have no license_key column');
     }
 

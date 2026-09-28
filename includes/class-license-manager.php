@@ -121,10 +121,11 @@ class Peanut_License_Manager {
      * Hash a license key. The hash is the only lookup column, so the key is
      * normalized first: keys are issued uppercase, and clients have always
      * been allowed to send them in any case (the old plaintext comparison
-     * was case-insensitive under MySQL's default collation).
+     * was case-insensitive under MySQL's default collation). Keyed (HMAC)
+     * when the key vault is enabled; see Peanut_License_Key_Vault.
      */
     public static function hash_license_key(string $key): string {
-        return hash('sha256', strtoupper(trim($key)));
+        return Peanut_License_Key_Vault::lookup_hash($key);
     }
 
     /**
@@ -138,7 +139,7 @@ class Peanut_License_Manager {
         $tier_config = self::TIERS[$tier] ?? self::TIERS['free'];
 
         $insert_data = [
-            'license_key' => $license_key,
+            'license_key' => Peanut_License_Key_Vault::seal($license_key),
             'license_key_hash' => self::hash_license_key($license_key),
             'order_id' => $data['order_id'] ?? null,
             'subscription_id' => $data['subscription_id'] ?? null,
@@ -179,6 +180,7 @@ class Peanut_License_Manager {
         );
 
         if ($license) {
+            Peanut_License_Key_Vault::reveal_rows($license);
             $license->activations = self::get_activations($license->id);
             $license->activations_count = count(array_filter($license->activations, fn($a) => $a->is_active));
         }
@@ -187,21 +189,25 @@ class Peanut_License_Manager {
     }
 
     /**
-     * Get license by key. Looks up by hash only; the plaintext column is
-     * never queried (it is scheduled for removal).
+     * Get license by key. Looks up by hash only; the stored key column is
+     * never queried. Rows not yet swept by the key vault still carry the
+     * legacy SHA-256, so both candidates are matched.
      */
     public static function get_by_key(string $key): ?object {
         global $wpdb;
         $table = self::get_table_name();
 
+        $hashes = Peanut_License_Key_Vault::candidate_hashes($key);
+        $placeholders = implode(', ', array_fill(0, count($hashes), '%s'));
         $license = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM {$table} WHERE license_key_hash = %s",
-                self::hash_license_key($key)
+                "SELECT * FROM {$table} WHERE license_key_hash IN ({$placeholders}) LIMIT 1",
+                ...$hashes
             )
         );
 
         if ($license) {
+            Peanut_License_Key_Vault::reveal_rows($license);
             $license->activations = self::get_activations($license->id);
             $license->activations_count = count(array_filter($license->activations, fn($a) => $a->is_active));
         }
@@ -223,6 +229,7 @@ class Peanut_License_Manager {
             )
         );
 
+        Peanut_License_Key_Vault::reveal_rows($licenses);
         foreach ($licenses as $license) {
             $license->activations = self::get_activations($license->id);
             $license->activations_count = count(array_filter($license->activations, fn($a) => $a->is_active));
@@ -245,6 +252,7 @@ class Peanut_License_Manager {
             )
         );
 
+        Peanut_License_Key_Vault::reveal_rows($licenses);
         foreach ($licenses as $license) {
             $license->activations = self::get_activations($license->id);
             $license->activations_count = count(array_filter($license->activations, fn($a) => $a->is_active));
@@ -287,9 +295,15 @@ class Peanut_License_Manager {
         }
 
         if (!empty($args['search'])) {
-            $where_clauses[] = '(license_key LIKE %s OR customer_email LIKE %s OR customer_name LIKE %s)';
+            // Stored keys may be ciphertext, so a key is found by its hash:
+            // a complete key matches exactly, partial keys match nothing.
             $search = '%' . $wpdb->esc_like($args['search']) . '%';
-            $where_values[] = $search;
+            $key_hashes = Peanut_License_Validator::is_valid_format(trim($args['search']))
+                ? Peanut_License_Key_Vault::candidate_hashes($args['search'])
+                : [''];
+            $where_clauses[] = '(license_key_hash IN (' . implode(', ', array_fill(0, count($key_hashes), '%s'))
+                . ') OR customer_email LIKE %s OR customer_name LIKE %s)';
+            array_push($where_values, ...$key_hashes);
             $where_values[] = $search;
             $where_values[] = $search;
         }
@@ -309,6 +323,7 @@ class Peanut_License_Manager {
         $values = array_merge($where_values, [$args['per_page'], $offset]);
         $licenses = $wpdb->get_results($wpdb->prepare($sql, ...$values));
 
+        Peanut_License_Key_Vault::reveal_rows($licenses);
         foreach ($licenses as $license) {
             $license->activations = self::get_activations($license->id);
             $license->activations_count = count(array_filter($license->activations, fn($a) => $a->is_active));
@@ -419,7 +434,7 @@ class Peanut_License_Manager {
         $result = $wpdb->update(
             self::get_table_name(),
             [
-                'license_key' => $new_key,
+                'license_key' => Peanut_License_Key_Vault::seal($new_key),
                 'license_key_hash' => $new_hash,
             ],
             ['id' => $id],
