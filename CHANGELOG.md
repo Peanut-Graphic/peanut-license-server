@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-28
+
 ### Security
 - **License keys encrypted at rest.** With `PEANUT_LICENSE_KEY_SECRET` (base64, 32+ bytes) in wp-config.php, stored keys become XChaCha20-Poly1305 ciphertext and `license_key_hash` becomes an HMAC-SHA256 of the normalized key (subkeys derived with HKDF). Keys are decrypted on read, so the My Account page, admin screens, emails, exports and CLI are unchanged. An hourly sweep (or `wp peanut-license encrypt-keys`) converts existing rows and rehashes their validation logs; lookups accept the legacy SHA-256 until then. Schema 1.8.0 widens `license_key` to VARCHAR(128) and drops its plaintext UNIQUE index (uniqueness now lives on the hash); encryption stays off until that has run, so ciphertext is never truncated. A canary detects a changed secret: Site Health goes critical and the sweep refuses to run. Without the secret, behavior is unchanged and Site Health recommends enabling it. Admin search matches a complete key; partial-key search no longer matches.
 - **Fail closed on License Server self-updates.** The plugin now joins its own canonical update channel only when the shared formflow-core verifier is present, pins the Peanut Ed25519 public key and trusted HTTPS package hosts, and rejects unsigned, tampered, wrong-key, or incomplete artifacts before WordPress can install them.
