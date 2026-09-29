@@ -92,14 +92,20 @@ stores them encrypted (XChaCha20-Poly1305) and looks them up by an
 HMAC-SHA256 of the normalized key, so a database leak exposes neither the keys
 nor a brute-forceable hash. Customers and admins still see their keys.
 
-Enable it on the server (the secret is generated there and never printed):
+Enable it from your own terminal, not from an agent or CI session whose output
+is logged. `wp config set` echoes the value it writes unless `--quiet` is
+passed, so the secret is sent over stdin and the command runs quietly:
 
 ```bash
-wp config set PEANUT_LICENSE_KEY_SECRET "$(php -r 'echo base64_encode(random_bytes(32));')" --type=constant
-wp peanut-license encrypt-keys   # or let the hourly sweep do it
+S=$(openssl rand -base64 32)
+printf %s "$S" | pbcopy          # paste into the password manager NOW
+printf %s "$S" | ssh peanutgraphic 'cd ~/public_html && read -r S && wp config set PEANUT_LICENSE_KEY_SECRET "$S" --type=constant --quiet'
+unset S
+wp peanut-license encrypt-keys   # on the server; or let the hourly sweep do it
 ```
 
-**Copy the secret into the password manager before running the sweep.**
+**Copy the secret into the password manager before setting it.** The sweep
+starts within about a minute of the constant existing.
 Losing it makes every encrypted key unrecoverable and every license fail
 validation. Changing it has the same effect; Site Health reports a mismatch
 and the sweep refuses to run. Without the secret the server keeps working
