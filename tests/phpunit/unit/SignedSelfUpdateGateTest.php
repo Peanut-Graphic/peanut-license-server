@@ -41,7 +41,7 @@ final class SignedSelfUpdateGateTest extends TestCase {
 
     public function test_shared_verifier_is_a_shipping_dependency(): void {
         $composer = json_decode(file_get_contents(PEANUT_LICENSE_SERVER_PATH . 'composer.json'), true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame('^0.5.0', $composer['require']['peanut/formflow-core'] ?? null);
+        $this->assertSame('^0.6.0', $composer['require']['peanut/formflow-core'] ?? null);
     }
 
     public function test_license_server_is_registered_on_its_own_update_channel(): void {
