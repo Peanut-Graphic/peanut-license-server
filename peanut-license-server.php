@@ -3,7 +3,7 @@
  * Plugin Name: Peanut License Server
  * Plugin URI: https://peanutgraphic.com/peanut-suite
  * Description: License management, validation, and update server for Peanut Suite WordPress plugin.
- * Version: 1.4.5
+ * Version: 1.5.0
  * Author: Peanut Graphic
  * Author URI: https://peanutgraphic.com
  * License: GPL-2.0-or-later
@@ -17,7 +17,7 @@
 defined('ABSPATH') || exit;
 
 // Plugin constants
-define('PEANUT_LICENSE_SERVER_VERSION', '1.4.5');
+define('PEANUT_LICENSE_SERVER_VERSION', '1.5.0');
 define('PEANUT_LICENSE_SERVER_PATH', plugin_dir_path(__FILE__));
 define('PEANUT_LICENSE_SERVER_URL', plugin_dir_url(__FILE__));
 define('PEANUT_LICENSE_SERVER_BASENAME', plugin_basename(__FILE__));
@@ -227,6 +227,7 @@ final class Peanut_License_Server {
         require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-db-migrations.php';
 
         // Core classes
+        require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-key-vault.php';
         require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-manager.php';
         require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-validator.php';
         require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-signer.php';
@@ -302,6 +303,9 @@ final class Peanut_License_Server {
         // Initialize webhook notifications
         Peanut_Webhook_Notifications::init();
 
+        // License key encryption sweep + Site Health check
+        Peanut_License_Key_Vault::init();
+
         // WooCommerce hooks
         add_action('woocommerce_order_status_completed', [$this, 'handle_order_completed']);
         add_action('woocommerce_subscription_status_active', [$this, 'handle_subscription_active']);
@@ -339,6 +343,8 @@ final class Peanut_License_Server {
         if (class_exists('Peanut_ML_Abuse_Detector')) {
             Peanut_ML_Abuse_Detector::unschedule_training();
         }
+
+        wp_clear_scheduled_hook('peanut_license_key_sweep');
     }
 
     /**
@@ -352,7 +358,7 @@ final class Peanut_License_Server {
         $licenses_table = $wpdb->prefix . 'peanut_licenses';
         $licenses_sql = "CREATE TABLE IF NOT EXISTS {$licenses_table} (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            license_key VARCHAR(64) NOT NULL,
+            license_key VARCHAR(128) NOT NULL,
             license_key_hash VARCHAR(64) NOT NULL,
             order_id BIGINT UNSIGNED DEFAULT NULL,
             subscription_id BIGINT UNSIGNED DEFAULT NULL,
@@ -366,8 +372,7 @@ final class Peanut_License_Server {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             expires_at DATETIME DEFAULT NULL,
-            UNIQUE KEY unique_license_key (license_key),
-            KEY idx_license_key_hash (license_key_hash),
+            UNIQUE KEY unique_license_key_hash (license_key_hash),
             KEY idx_customer_email (customer_email),
             KEY idx_status (status),
             KEY idx_user_id (user_id),

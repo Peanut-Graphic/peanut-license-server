@@ -774,6 +774,7 @@ require_once PEANUT_LICENSE_SERVER_PATH . 'includes/client-ip-functions.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-logger.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-db-migrations.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-subscription-sync.php';
+require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-key-vault.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-manager.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-validator.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-rate-limiter.php';

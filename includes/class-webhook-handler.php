@@ -245,9 +245,9 @@ class Peanut_Webhook_Handler {
         global $wpdb;
         $table = Peanut_License_Manager::get_table_name();
 
-        return $wpdb->get_row(
+        return Peanut_License_Key_Vault::reveal_rows($wpdb->get_row(
             $wpdb->prepare("SELECT * FROM {$table} WHERE order_id = %d", $order_id)
-        );
+        ));
     }
 
     /**
@@ -257,9 +257,9 @@ class Peanut_Webhook_Handler {
         global $wpdb;
         $table = Peanut_License_Manager::get_table_name();
 
-        return $wpdb->get_row(
+        return Peanut_License_Key_Vault::reveal_rows($wpdb->get_row(
             $wpdb->prepare("SELECT * FROM {$table} WHERE subscription_id = %d", $subscription_id)
-        );
+        ));
     }
 
     /**

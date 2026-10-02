@@ -338,10 +338,10 @@ class Peanut_Subscription_Sync {
     public static function get_licenses_for_subscription(int $subscription_id): array {
         global $wpdb;
 
-        return $wpdb->get_results($wpdb->prepare(
+        return Peanut_License_Key_Vault::reveal_rows($wpdb->get_results($wpdb->prepare(
             "SELECT * FROM {$wpdb->prefix}peanut_licenses WHERE subscription_id = %d",
             $subscription_id
-        ));
+        )));
     }
 
     /**

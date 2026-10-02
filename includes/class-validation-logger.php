@@ -27,7 +27,11 @@ class Peanut_Validation_Logger {
 
         $insert_data = [
             'license_key_partial' => self::mask_license_key($data['license_key'] ?? ''),
-            'license_key_hash' => isset($data['license_key']) ? hash('sha256', $data['license_key']) : null,
+            'license_key_hash' => isset($data['license_key'])
+                ? (class_exists('Peanut_License_Key_Vault')
+                    ? Peanut_License_Key_Vault::lookup_hash((string) $data['license_key'])
+                    : hash('sha256', strtoupper(trim((string) $data['license_key']))))
+                : null,
             'site_url' => sanitize_url($data['site_url'] ?? ''),
             'ip_address' => self::get_client_ip(),
             'user_agent' => substr(sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),

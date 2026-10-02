@@ -370,6 +370,43 @@ class Peanut_License_CLI {
 
         return $results;
     }
+
+    /**
+     * Encrypt stored license keys and move lookup hashes to the keyed HMAC.
+     *
+     * Requires PEANUT_LICENSE_KEY_SECRET. Safe to re-run; converted rows are
+     * skipped.
+     *
+     * ## EXAMPLES
+     *
+     *     wp peanut-license encrypt-keys
+     *
+     * @subcommand encrypt-keys
+     * @when after_wp_load
+     */
+    public function encrypt_keys($args, $assoc_args) {
+        $status = Peanut_License_Key_Vault::secret_status();
+        if ($status === 'disabled') {
+            WP_CLI::error('PEANUT_LICENSE_KEY_SECRET is not set (or not base64 of 32+ bytes).');
+        }
+        if ($status === 'mismatch') {
+            WP_CLI::error('PEANUT_LICENSE_KEY_SECRET does not match the secret existing keys were encrypted with.');
+        }
+        if (!Peanut_License_DB_Migrations::license_key_column_ready()) {
+            WP_CLI::error('license_key column is not widened yet; load any page so schema 1.8.0 runs, then retry.');
+        }
+        $total = 0;
+        do {
+            $done = Peanut_License_Key_Vault::sweep();
+            $total += $done;
+        } while ($done === Peanut_License_Key_Vault::SWEEP_BATCH);
+        $left = Peanut_License_Key_Vault::remaining();
+        if ($left > 0) {
+            WP_CLI::warning("Encrypted {$total} keys; {$left} could not be converted (see logs).");
+            return;
+        }
+        WP_CLI::success("Encrypted {$total} keys; none remain in plaintext.");
+    }
 }
 
 // Register the CLI command
