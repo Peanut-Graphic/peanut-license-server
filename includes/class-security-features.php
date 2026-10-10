@@ -30,7 +30,8 @@ class Peanut_Security_Features {
      * evaluated restrictions.)
      *
      * Fails closed: the request is refused when the restrictions cannot be
-     * read (database error or undecodable stored data), when a domain lock is
+     * read (database error or undecodable stored data; a missing table is
+     * not an error, since no restriction can exist), when a domain lock is
      * set and the site URL has no host, and when a hardware lock is set and
      * the request carries no fingerprint.
      *
@@ -53,10 +54,24 @@ class Peanut_Security_Features {
         $restrictions = self::get_license_restrictions($license_id);
 
         if ($restrictions === null) {
-            if (!empty($wpdb->last_error)) {
+            // Capture now: any later query (the existence probe) resets it.
+            $read_error = (string) $wpdb->last_error;
+
+            if ($read_error !== '' && !self::restrictions_table_exists()) {
+                // No table means no restriction can ever have been saved (an
+                // auto-update does not run the activation hook that creates
+                // it). Refusing here would block every activation.
+                Peanut_Logger::warning('License restrictions table is missing; no restrictions to enforce', [
+                    'table' => self::get_table_name(),
+                ]);
+
+                return ['valid' => true, 'checks' => $checks, 'errors' => []];
+            }
+
+            if ($read_error !== '') {
                 Peanut_Logger::error('License restrictions could not be read; refusing request', [
                     'license_id' => $license_id,
-                    'db_error' => $wpdb->last_error,
+                    'db_error' => $read_error,
                 ]);
 
                 return [
@@ -132,6 +147,24 @@ class Peanut_Security_Features {
             'checks' => $checks,
             'errors' => $errors,
         ];
+    }
+
+    /**
+     * Whether the restrictions table exists. Only consulted after a failed
+     * read; any doubt (including a failed SHOW TABLES) counts as "exists" so
+     * the caller keeps failing closed.
+     */
+    private static function restrictions_table_exists(): bool {
+        global $wpdb;
+        $table = self::get_table_name();
+
+        $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
+
+        if (!empty($wpdb->last_error)) {
+            return true;
+        }
+
+        return $found !== null;
     }
 
     /**

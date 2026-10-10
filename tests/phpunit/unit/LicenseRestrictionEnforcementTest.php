@@ -22,6 +22,7 @@ class RestrictionSpyWPDB extends MockWPDB {
     public ?object $license = null;
     public ?object $restrictions = null;
     public bool $restrictions_error = false;
+    public bool $restrictions_table_missing = false;
     /** @var array<int,array> */
     public array $inserts = [];
 
@@ -30,6 +31,10 @@ class RestrictionSpyWPDB extends MockWPDB {
         $this->last_error = '';
 
         if (stripos($query, 'peanut_license_restrictions') !== false) {
+            if ($this->restrictions_table_missing) {
+                $this->last_error = "Table 'wp.wp_peanut_license_restrictions' doesn't exist";
+                return null;
+            }
             if ($this->restrictions_error) {
                 $this->last_error = 'Lost connection to MySQL server during query';
                 return null;
@@ -50,6 +55,9 @@ class RestrictionSpyWPDB extends MockWPDB {
 
     public function get_var(?string $query = null) {
         $this->last_error = '';
+        if ($query !== null && stripos($query, 'SHOW TABLES') !== false) {
+            return $this->restrictions_table_missing ? null : 'wp_peanut_license_restrictions';
+        }
         return 0;
     }
 
@@ -243,6 +251,20 @@ class LicenseRestrictionEnforcementTest extends TestCase {
         $refused = $api->validate_license($request);
         $this->assertSame(400, $refused->get_status());
         $this->assertSame('license_restricted', $refused->get_data()['error']);
+    }
+
+    /** @test */
+    public function a_missing_restrictions_table_means_no_restrictions(): void {
+        // Auto-updates do not run the activation hook and the schema
+        // self-heal does not track this table, so an install can lack it.
+        // No restriction can have been saved then; refusing every activation
+        // would be an outage, not a security control.
+        $this->spy->restrictions_table_missing = true;
+
+        $result = $this->activate('https://site.example.com');
+
+        $this->assertTrue($result['success']);
+        $this->assertCount(1, $this->spy->inserts);
     }
 
     /** @test */
