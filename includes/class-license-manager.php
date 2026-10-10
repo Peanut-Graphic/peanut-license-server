@@ -107,14 +107,15 @@ class Peanut_License_Manager {
     }
 
     /**
-     * Generate a unique license key
+     * Generate a license key: XXXX-XXXX-XXXX-XXXX, uppercase hex.
+     *
+     * 64 bits from the CSPRNG (random_bytes). The shape is unchanged from the
+     * previous md5(wp_generate_uuid4()) keys, which drew on mt_rand() and
+     * were therefore predictable; clients, is_valid_format() and stored keys
+     * all depend on this exact format.
      */
     public static function generate_license_key(): string {
-        $segments = [];
-        for ($i = 0; $i < 4; $i++) {
-            $segments[] = strtoupper(substr(md5(wp_generate_uuid4()), 0, 4));
-        }
-        return implode('-', $segments);
+        return implode('-', str_split(strtoupper(bin2hex(random_bytes(8))), 4));
     }
 
     /**

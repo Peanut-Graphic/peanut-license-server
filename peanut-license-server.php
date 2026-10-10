@@ -285,9 +285,10 @@ final class Peanut_License_Server {
      * Initialize hooks
      */
     private function init_hooks(): void {
-        // Handle downloads via admin-ajax.php (bypasses Apache mod_negotiation 406 errors)
+        // Handle downloads via admin-ajax.php (bypasses Apache mod_negotiation 406 errors).
+        // Logged-in administrators only: the handler has no license check, so
+        // there is deliberately no wp_ajax_nopriv_ registration.
         add_action('wp_ajax_peanut_download_plugin', [$this, 'handle_ajax_download']);
-        add_action('wp_ajax_nopriv_peanut_download_plugin', [$this, 'handle_ajax_download']);
 
         // Activation/deactivation
         register_activation_hook(__FILE__, [$this, 'activate']);
@@ -492,9 +493,16 @@ final class Peanut_License_Server {
      * ?peanut_download / admin-ajax self-hosted path.
      */
     public function handle_ajax_download(): void {
+        // Administrators only: this streams the self-hosted ZIP without any
+        // license check, so it must never serve customers or visitors.
+        if ( ! current_user_can( 'manage_options' ) ) {
+            status_header( 403 );
+            wp_die( esc_html__( 'You do not have permission to download this file.', 'peanut-license-server' ), 403 );
+        }
+
         // Verify nonce for security
-        if ( ! isset( $_REQUEST['_wpnonce'] ) || ! wp_verify_nonce( $_REQUEST['_wpnonce'], 'peanut_download_plugin' ) ) {
-            wp_die( __( 'Security check failed', 'peanut-license-server' ) );
+        if ( ! isset( $_REQUEST['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_REQUEST['_wpnonce'] ) ), 'peanut_download_plugin' ) ) {
+            wp_die( esc_html__( 'Security check failed', 'peanut-license-server' ) );
         }
 
         $plugin = isset($_GET['plugin']) ? sanitize_text_field($_GET['plugin']) : 'peanut-suite';
