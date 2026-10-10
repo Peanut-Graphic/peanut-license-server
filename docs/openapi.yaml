@@ -157,12 +157,23 @@ paths:
       tags:
         - License
       summary: Check license status
-      description: Returns the current status of a license without activating it.
+      description: |
+        Returns the current status of a license without activating it.
+        Send the key in the `X-Peanut-License-Key` header (or POST it, below).
+        The `license_key` query parameter still works for installed clients
+        but is deprecated: it leaks the key into access logs, and responses
+        to it carry a `Deprecation: true` header.
       operationId: getLicenseStatus
       parameters:
+        - name: X-Peanut-License-Key
+          in: header
+          required: false
+          schema:
+            type: string
         - name: license_key
           in: query
-          required: true
+          required: false
+          deprecated: true
           schema:
             type: string
       responses:
@@ -172,8 +183,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LicenseStatus'
-        '404':
-          description: License not found
+        '400':
+          description: Missing (rest_missing_callback_param), malformed or invalid license key
+    post:
+      tags:
+        - License
+      summary: Check license status (key in body)
+      description: Same as GET, with the key in the request body or the `X-Peanut-License-Key` header.
+      operationId: postLicenseStatus
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                license_key:
+                  type: string
+      responses:
+        '200':
+          description: License status returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LicenseStatus'
+        '400':
+          description: Missing, malformed or invalid license key
 
   /peanut-api/v1/license/activations:
     get:
@@ -225,8 +259,16 @@ paths:
           schema:
             type: string
             default: 0.0.0
+        - name: X-Peanut-License-Key
+          in: header
+          required: false
+          description: Preferred way to send the license key.
+          schema:
+            type: string
         - name: license
           in: query
+          deprecated: true
+          description: "Still accepted; responses carry `Deprecation: true`. Use the header."
           schema:
             type: string
         - name: site_url

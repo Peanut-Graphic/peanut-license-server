@@ -46,6 +46,13 @@ class Peanut_API_Endpoints {
                     'type' => 'string',
                     'sanitize_callback' => 'sanitize_text_field',
                 ],
+                // Optional; only needed for licenses locked to a hardware
+                // fingerprint (Peanut_Security_Features).
+                'hardware_id' => [
+                    'required' => false,
+                    'type' => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
             ],
         ]);
 
@@ -68,14 +75,19 @@ class Peanut_API_Endpoints {
             ],
         ]);
 
-        // License status check (no activation)
+        // License status check (no activation).
+        // The key may come from the X-Peanut-License-Key header, a POST body,
+        // or (deprecated, kept for installed clients) ?license_key= on a GET.
+        // Not marked required here so a header-only request reaches the
+        // handler, which returns the same 400 rest_missing_callback_param
+        // WordPress used to when no key is supplied anywhere.
         register_rest_route(self::NAMESPACE, '/license/status', [
-            'methods' => WP_REST_Server::READABLE,
+            'methods' => [WP_REST_Server::READABLE, WP_REST_Server::CREATABLE],
             'callback' => [$this, 'get_license_status'],
             'permission_callback' => [Peanut_API_Security::class, 'permission_public_license'],
             'args' => [
                 'license_key' => [
-                    'required' => true,
+                    'required' => false,
                     'type' => 'string',
                     'sanitize_callback' => 'sanitize_text_field',
                 ],
@@ -317,6 +329,7 @@ class Peanut_API_Endpoints {
             'site_url' => $site_url,
             'site_name' => $request->get_param('site_name'),
             'plugin_version' => $request->get_param('plugin_version'),
+            'hardware_id' => (string) ($request->get_param('hardware_id') ?? ''),
         ]);
 
         // Log the attempt
@@ -402,7 +415,17 @@ class Peanut_API_Endpoints {
     /**
      * Get license status without activation
      */
-    public function get_license_status(WP_REST_Request $request): WP_REST_Response {
+    public function get_license_status(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        $supplied = Peanut_API_Security::get_license_key_from_request($request, 'license_key');
+
+        if ($supplied['key'] === null) {
+            return new WP_Error(
+                'rest_missing_callback_param',
+                __('Missing parameter(s): license_key', 'peanut-license-server'),
+                ['status' => 400, 'params' => ['license_key']]
+            );
+        }
+
         // Check rate limit
         $rate_limited = Peanut_Rate_Limiter::check('license_status');
         if ($rate_limited) {
@@ -411,7 +434,7 @@ class Peanut_API_Endpoints {
 
         Peanut_Rate_Limiter::record_request('license_status');
 
-        $license_key = Peanut_License_Validator::sanitize_key($request->get_param('license_key'));
+        $license_key = Peanut_License_Validator::sanitize_key($supplied['key']);
 
         if (!Peanut_License_Validator::is_valid_format($license_key)) {
             Peanut_Validation_Logger::log_failure(
@@ -436,6 +459,10 @@ class Peanut_API_Endpoints {
 
         $status = $result['success'] ? 200 : 400;
         $response = new WP_REST_Response($result, $status);
+
+        if ($supplied['from_query']) {
+            Peanut_API_Security::flag_query_string_license_key($response);
+        }
 
         return Peanut_Rate_Limiter::add_headers($response, 'license_status');
     }
@@ -466,12 +493,16 @@ class Peanut_API_Endpoints {
         }
 
         $current_version = $request->get_param('version');
-        $license_key = $request->get_param('license');
+        $supplied = Peanut_API_Security::get_license_key_from_request($request, 'license');
 
         $update_server = new Peanut_Update_Server($plugin);
-        $result = $update_server->check_update($current_version, $license_key);
+        $result = $update_server->check_update((string) ($current_version ?? '0.0.0'), $supplied['key']);
 
         $response = new WP_REST_Response($result, 200);
+
+        if ($supplied['from_query']) {
+            Peanut_API_Security::flag_query_string_license_key($response);
+        }
 
         return Peanut_Rate_Limiter::add_headers($response, 'update_check');
     }
@@ -516,12 +547,16 @@ class Peanut_API_Endpoints {
             $current_version = '0.0.0';
         }
 
-        $license_key = $request->get_param('license');
+        $supplied = Peanut_API_Security::get_license_key_from_request($request, 'license');
 
         $update_server = new Peanut_Update_Server($plugin);
-        $result = $update_server->check_update($current_version, $license_key);
+        $result = $update_server->check_update($current_version, $supplied['key']);
 
         $response = new WP_REST_Response($result, 200);
+
+        if ($supplied['from_query']) {
+            Peanut_API_Security::flag_query_string_license_key($response);
+        }
 
         return Peanut_Rate_Limiter::add_headers($response, 'update_check');
     }
@@ -531,7 +566,7 @@ class Peanut_API_Endpoints {
      */
     public function get_plugin_info(WP_REST_Request $request): WP_REST_Response {
         $plugin = $request->get_param('plugin') ?? 'peanut-suite';
-        $license_key = $request->get_param('license');
+        $supplied = Peanut_API_Security::get_license_key_from_request($request, 'license');
 
         if (!Peanut_Update_Server::is_valid_product($plugin)) {
             return new WP_REST_Response([
@@ -541,9 +576,15 @@ class Peanut_API_Endpoints {
         }
 
         $update_server = new Peanut_Update_Server($plugin);
-        $info = $update_server->get_plugin_info($license_key);
+        $info = $update_server->get_plugin_info($supplied['key']);
 
-        return new WP_REST_Response($info, 200);
+        $response = new WP_REST_Response($info, 200);
+
+        if ($supplied['from_query']) {
+            Peanut_API_Security::flag_query_string_license_key($response);
+        }
+
+        return $response;
     }
 
     /**
@@ -559,7 +600,7 @@ class Peanut_API_Endpoints {
         Peanut_Rate_Limiter::record_request('download');
 
         $plugin = $request->get_param('plugin') ?? 'peanut-suite';
-        $license_key = $request->get_param('license');
+        $license_key = Peanut_API_Security::get_license_key_from_request($request, 'license')['key'];
         $token = $request->get_param('token');
 
         if (!Peanut_Update_Server::is_valid_product($plugin)) {

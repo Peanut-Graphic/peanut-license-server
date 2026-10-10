@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **My Account → Licenses trusts the license owner, not the account email.** The portal no longer falls back to licenses whose purchase email matches the account email (WooCommerce does not verify a registered or changed email, so anyone could see another customer's keys, sites and activation IDs), and the `peanut_deactivate_customer_site` AJAX action now requires `license.user_id` to be the current user (or `manage_options`) instead of accepting an email match. Guest-checkout licenses (no `user_id`) are linked with a new claim flow: the customer enters the purchase email, a link HMAC-signed over the exact license IDs, the requesting user, that email and a 24-hour expiry is mailed to that address, and opening it while signed in to the same account links them. The on-screen reply does not reveal whether licenses exist; requests are throttled to one per account per five minutes.
+- **Per-license restrictions are enforced.** The IP whitelist, allowed domains and hardware fingerprint saved through `peanut-admin/v1/licenses/{id}/restrictions` were never checked. `/license/validate` now refuses a restricted license with `license_restricted` (HTTP 400) and fails closed when restrictions cannot be read, when a domain-locked request has no host, or when a hardware-locked request carries no fingerprint. `/license/validate` accepts an optional `hardware_id`.
+- **License keys no longer need to travel in URLs.** Every route that takes a key also reads an `X-Peanut-License-Key` header, and `/license/status` accepts POST. Query-string keys keep working for installed clients; those responses add `Deprecation: true`. The portal's Download button uses a one-hour signed download token instead of `?license=<key>`.
+- **License keys come from `random_bytes()`** instead of `md5(wp_generate_uuid4())` (mt_rand-based). Same `XXXX-XXXX-XXXX-XXXX` uppercase-hex format.
+- **Removed the logged-out admin-ajax download handler** (`wp_ajax_nopriv_peanut_download_plugin`); its nonce was never issued and it had no license check. The logged-in handler is limited to administrators.
+
 ## [1.5.0] - 2026-09-28
 
 ### Security

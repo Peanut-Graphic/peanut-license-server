@@ -110,6 +110,8 @@ if (!defined('ARRAY_N')) {
  */
 class WP_REST_Request {
     private array $params = [];
+    private array $headers = [];
+    private array $query_params = [];
     private string $method;
     private string $route;
 
@@ -128,6 +130,33 @@ class WP_REST_Request {
 
     public function get_params(): array {
         return $this->params;
+    }
+
+    /**
+     * Headers are canonicalized the way WP_REST_Request does it (lowercase,
+     * dashes as underscores), so X-Peanut-License-Key == x_peanut_license_key.
+     */
+    public function set_header(string $key, $value): void {
+        $this->headers[strtolower(str_replace('-', '_', $key))] = (string) $value;
+    }
+
+    public function get_header(string $key): ?string {
+        return $this->headers[strtolower(str_replace('-', '_', $key))] ?? null;
+    }
+
+    /**
+     * Mark params as having arrived in the URL query string (they are also
+     * visible through get_param(), as in WordPress).
+     */
+    public function set_query_params(array $params): void {
+        $this->query_params = $params;
+        foreach ($params as $key => $value) {
+            $this->params[$key] = $value;
+        }
+    }
+
+    public function get_query_params(): array {
+        return $this->query_params;
     }
 
     public function get_method(): string {
@@ -483,10 +512,32 @@ function get_bloginfo(string $show = ''): string {
 // ::setUserLoggedIn() to flip them, and reset between tests.
 $_mock_user_can       = true;
 $_mock_user_logged_in = true;
+// Identity of the logged-in mock user (ID 1 unless a test switches it with
+// PeanutTestHelper::setCurrentUser()). Ownership checks compare against these.
+// PHPUnit includes this file from inside a method, so plain assignments here
+// are not globals; set them through $GLOBALS (and default on read).
+$GLOBALS['_mock_user_id']    = 1;
+$GLOBALS['_mock_user_email'] = 'test@example.com';
 
 function get_current_user_id(): int {
-    global $_mock_user_logged_in;
-    return $_mock_user_logged_in ? 1 : 0;
+    global $_mock_user_logged_in, $_mock_user_id;
+    return ($_mock_user_logged_in ?? true) ? (int) ($_mock_user_id ?? 1) : 0;
+}
+
+function wp_get_current_user(): object {
+    global $_mock_user_email;
+    $id = get_current_user_id();
+    return (object) [
+        'ID'           => $id,
+        'user_email'   => $id ? ($_mock_user_email ?? 'test@example.com') : '',
+        'user_login'   => $id ? 'user' . $id : '',
+        'display_name' => $id ? 'User ' . $id : '',
+    ];
+}
+
+function get_userdata(int $user_id) {
+    $current = wp_get_current_user();
+    return ($user_id > 0 && $user_id === $current->ID) ? $current : false;
 }
 
 function current_user_can(string $capability): bool {
@@ -583,7 +634,11 @@ function apply_filters(string $tag, $value, ...$args) {
     return $value;
 }
 
+$_mock_rest_routes = [];
+
 function register_rest_route(string $namespace, string $route, array $args = []): bool {
+    global $_mock_rest_routes;
+    $_mock_rest_routes[$namespace . $route] = $args;
     return true;
 }
 
@@ -625,6 +680,70 @@ function wp_die(string $message = '', $title = '', $args = []): void {
 
 function flush_rewrite_rules(): void {
     // No-op in tests
+}
+
+/**
+ * Thrown by the wp_send_json_* / check_ajax_referer stubs. The real functions
+ * print JSON and die; throwing lets a test capture the payload instead.
+ */
+class PeanutJsonResponse extends Exception {
+    public bool $success;
+    public $data;
+
+    public function __construct(bool $success, $data = null) {
+        parent::__construct($success ? 'json_success' : 'json_error');
+        $this->success = $success;
+        $this->data    = $data;
+    }
+}
+
+function wp_send_json_success($data = null, $status_code = null, $options = 0): void {
+    throw new PeanutJsonResponse(true, $data);
+}
+
+function wp_send_json_error($data = null, $status_code = null, $options = 0): void {
+    throw new PeanutJsonResponse(false, $data);
+}
+
+function check_ajax_referer($action = -1, $query_arg = false, $stop = true) {
+    $nonce = $query_arg ? ($_REQUEST[$query_arg] ?? '') : ($_REQUEST['_ajax_nonce'] ?? '');
+    $ok = wp_verify_nonce((string) $nonce, (string) $action);
+    if (!$ok && $stop) {
+        throw new PeanutJsonResponse(false, ['message' => 'bad_nonce']);
+    }
+    return $ok;
+}
+
+function wc_get_account_endpoint_url(string $endpoint): string {
+    return 'https://example.com/my-account/' . $endpoint . '/';
+}
+
+function esc_html__(string $text, string $domain = 'default'): string {
+    return esc_html($text);
+}
+
+function esc_html_e(string $text, string $domain = 'default'): void {
+    echo esc_html($text);
+}
+
+function esc_attr_e(string $text, string $domain = 'default'): void {
+    echo esc_attr($text);
+}
+
+function esc_js(string $text): string {
+    return addslashes($text);
+}
+
+function wp_nonce_field($action = -1, $name = '_wpnonce', $referer = true, $display = true): string {
+    $field = '<input type="hidden" name="' . esc_attr($name) . '" value="' . wp_create_nonce((string) $action) . '" />';
+    if ($display) {
+        echo $field;
+    }
+    return $field;
+}
+
+function is_email($email) {
+    return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : false;
 }
 
 /**
@@ -691,9 +810,21 @@ class PeanutTestHelper {
      * Reset auth state to the default authenticated admin.
      */
     public static function resetUser(): void {
-        global $_mock_user_can, $_mock_user_logged_in;
+        global $_mock_user_can, $_mock_user_logged_in, $_mock_user_id, $_mock_user_email;
         $_mock_user_can       = true;
         $_mock_user_logged_in = true;
+        $_mock_user_id        = 1;
+        $_mock_user_email     = 'test@example.com';
+    }
+
+    /**
+     * Log in as a specific (non-admin unless setUserCan(true)) user.
+     */
+    public static function setCurrentUser(int $user_id, string $email): void {
+        global $_mock_user_logged_in, $_mock_user_id, $_mock_user_email;
+        $_mock_user_logged_in = $user_id > 0;
+        $_mock_user_id        = $user_id;
+        $_mock_user_email     = $email;
     }
 
     /**
@@ -785,3 +916,7 @@ require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-license-self-updater.p
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-gdpr-compliance.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-webhook-handler.php';
 require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-api-endpoints.php';
+
+// WooCommerce customer portal. Without a WooCommerce class its constructor
+// registers nothing, so its methods can be exercised directly.
+require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-woocommerce-integration.php';

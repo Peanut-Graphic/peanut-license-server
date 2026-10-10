@@ -50,9 +50,13 @@ class Peanut_API_Security {
             );
         }
 
-        // Validate license key format if present.
-        $license_key = $request->get_param('license_key');
-        if ($license_key && !Peanut_License_Validator::is_valid_format($license_key)) {
+        // Validate license key format if present, wherever it was sent (the
+        // X-Peanut-License-Key header or the license_key parameter).
+        $license_key = self::get_license_key_from_request($request, 'license_key')['key'];
+        $param_key = $request->get_param('license_key');
+        $invalid_key = ($license_key && !Peanut_License_Validator::is_valid_format($license_key))
+            || (is_string($param_key) && $param_key !== '' && !Peanut_License_Validator::is_valid_format($param_key));
+        if ($invalid_key) {
             self::record_suspicious_activity('invalid_license_format');
             return new WP_Error(
                 'rest_invalid_param',
@@ -75,7 +79,7 @@ class Peanut_API_Security {
         // ML-powered abuse detection (gracefully degrades if service unavailable)
         if (class_exists('Peanut_ML_Abuse_Detector')) {
             $ml_result = Peanut_ML_Abuse_Detector::enforce(
-                $request->get_param('license_key') ?? '',
+                $license_key ?? '',
                 self::get_client_ip(),
                 isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'])) : null,
                 $request->get_param('site_url'),
@@ -87,6 +91,54 @@ class Peanut_API_Security {
         }
 
         return true;
+    }
+
+    /**
+     * Header clients can use to send a license key without putting it in a
+     * URL (where it lands in access logs, browser history and Referer).
+     */
+    public const LICENSE_KEY_HEADER = 'X-Peanut-License-Key';
+
+    /**
+     * Read a license key from a request.
+     *
+     * Precedence: the X-Peanut-License-Key header, then the named parameter
+     * (POST/JSON body, or the URL query string for installed clients).
+     * `from_query` is true when the key only arrived in the query string, a
+     * transport kept working for backwards compatibility but deprecated.
+     *
+     * @param WP_REST_Request $request The request.
+     * @param string          $param   Parameter name ('license_key' or 'license').
+     * @return array{key: ?string, from_query: bool}
+     */
+    public static function get_license_key_from_request(WP_REST_Request $request, string $param): array {
+        $header = method_exists($request, 'get_header') ? $request->get_header(self::LICENSE_KEY_HEADER) : null;
+        if (is_string($header) && trim($header) !== '') {
+            return ['key' => sanitize_text_field($header), 'from_query' => false];
+        }
+
+        $value = $request->get_param($param);
+        if (!is_string($value) || $value === '') {
+            return ['key' => null, 'from_query' => false];
+        }
+
+        $query = method_exists($request, 'get_query_params') ? (array) $request->get_query_params() : [];
+
+        return ['key' => $value, 'from_query' => array_key_exists($param, $query)];
+    }
+
+    /**
+     * Mark a response as having used the deprecated query-string key
+     * transport (RFC 9745 Deprecation header plus a human-readable hint).
+     */
+    public static function flag_query_string_license_key(WP_REST_Response $response): WP_REST_Response {
+        $response->header('Deprecation', 'true');
+        $response->header(
+            'X-Peanut-Deprecated',
+            'License key sent in the URL query string. Send it in the ' . self::LICENSE_KEY_HEADER . ' header instead.'
+        );
+
+        return $response;
     }
 
     /**

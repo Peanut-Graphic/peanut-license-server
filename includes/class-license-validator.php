@@ -20,6 +20,7 @@ class Peanut_License_Validator {
     public const ERROR_REVOKED = 'license_revoked';
     public const ERROR_ACTIVATION_LIMIT = 'activation_limit_reached';
     public const ERROR_INVALID_SITE = 'invalid_site_url';
+    public const ERROR_RESTRICTED = 'license_restricted';
     public const ERROR_SERVER = 'server_error';
 
     /**
@@ -63,6 +64,25 @@ class Peanut_License_Validator {
         $status_check = $this->check_license_status($license);
         if (!$status_check['success']) {
             return $status_check;
+        }
+
+        // Per-license IP / domain / hardware restrictions. Checked before the
+        // existing-activation lookup so a lock added after a site activated
+        // also applies to that site's next validation. Fails closed.
+        $restriction_check = Peanut_Security_Features::validate_request((int) $license->id, [
+            'site_url' => $site_data['site_url'],
+            'hardware_id' => $site_data['hardware_id'] ?? '',
+        ]);
+
+        if (empty($restriction_check['valid'])) {
+            $reasons = array_filter((array) ($restriction_check['errors'] ?? []));
+
+            return $this->error_response(
+                self::ERROR_RESTRICTED,
+                $reasons
+                    ? implode(' ', $reasons)
+                    : __('This license is not authorized for this site.', 'peanut-license-server')
+            );
         }
 
         // OPTIMIZED: Check if this site is already activated using direct database query
