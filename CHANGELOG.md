@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1 — pending release
+
+- Add opt-in `peanut_license_hardware_id` compatibility for existing server hardware locks; no automatic rebinding.
+- Move supported license status/update request keys to headers.
+- Release is gated by the PR #98 rollout checklist and real WordPress/WooCommerce claim testing.
+
 All notable changes to Peanut License Server will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

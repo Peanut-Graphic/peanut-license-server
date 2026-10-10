@@ -42,7 +42,7 @@ if (!class_exists('Peanut_License_Client')) {
         /**
          * Client version
          */
-        public const VERSION = '1.0.0';
+        public const VERSION = '1.0.1';
 
         /**
          * Configuration
@@ -596,6 +596,23 @@ if (!class_exists('Peanut_License_Client')) {
                     'X-Peanut-Client' => 'sdk/' . self::VERSION,
                 ],
             ];
+
+            // Keep keys out of URLs on the header-capable license server.
+            foreach (['license_key', 'license'] as $key_param) {
+                if (!empty($params[$key_param])) {
+                    $args['headers']['X-Peanut-License-Key'] = $params[$key_param];
+                    unset($params[$key_param]);
+                }
+            }
+
+            if ($endpoint === 'license/validate') {
+                // Supply the fingerprint already bound by the license administrator.
+                // Do not invent a new identity for existing hardware-locked licenses.
+                $hardware_id = apply_filters('peanut_license_hardware_id', '', $this->config['plugin_slug']);
+                if (is_string($hardware_id) && trim($hardware_id) !== '') {
+                    $params['hardware_id'] = trim($hardware_id);
+                }
+            }
 
             if ($method === 'GET') {
                 $url = add_query_arg($params, $url);
