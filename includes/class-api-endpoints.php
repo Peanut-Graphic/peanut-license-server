@@ -46,6 +46,13 @@ class Peanut_API_Endpoints {
                     'type' => 'string',
                     'sanitize_callback' => 'sanitize_text_field',
                 ],
+                // Optional; only needed for licenses locked to a hardware
+                // fingerprint (Peanut_Security_Features).
+                'hardware_id' => [
+                    'required' => false,
+                    'type' => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
             ],
         ]);
 
@@ -317,6 +324,7 @@ class Peanut_API_Endpoints {
             'site_url' => $site_url,
             'site_name' => $request->get_param('site_name'),
             'plugin_version' => $request->get_param('plugin_version'),
+            'hardware_id' => (string) ($request->get_param('hardware_id') ?? ''),
         ]);
 
         // Log the attempt

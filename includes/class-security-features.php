@@ -20,9 +20,27 @@ class Peanut_Security_Features {
     }
 
     /**
-     * Check if license passes all security checks
+     * Check whether a request may use a license under its saved restrictions.
+     *
+     * Called by Peanut_License_Validator::validate_and_activate() for every
+     * /license/validate request. A restriction applies whenever it has a
+     * value saved: a non-empty IP whitelist, a non-empty allowed-domains list
+     * or a hardware fingerprint. (The enforce_* columns are stored for the
+     * admin API but are not consulted, matching how this method has always
+     * evaluated restrictions.)
+     *
+     * Fails closed: the request is refused when the restrictions cannot be
+     * read (database error or undecodable stored data), when a domain lock is
+     * set and the site URL has no host, and when a hardware lock is set and
+     * the request carries no fingerprint.
+     *
+     * @param int   $license_id   License ID.
+     * @param array $request_data site_url, optional hardware_id.
+     * @return array{valid: bool, checks: array<string,bool>, errors: string[]}
      */
     public static function validate_request(int $license_id, array $request_data): array {
+        global $wpdb;
+
         $checks = [
             'ip' => true,
             'domain' => true,
@@ -34,8 +52,34 @@ class Peanut_Security_Features {
         // Get restrictions for this license
         $restrictions = self::get_license_restrictions($license_id);
 
-        if (empty($restrictions)) {
+        if ($restrictions === null) {
+            if (!empty($wpdb->last_error)) {
+                Peanut_Logger::error('License restrictions could not be read; refusing request', [
+                    'license_id' => $license_id,
+                    'db_error' => $wpdb->last_error,
+                ]);
+
+                return [
+                    'valid' => false,
+                    'checks' => ['ip' => false, 'domain' => false, 'hardware' => false],
+                    'errors' => [__('License restrictions could not be verified. Please try again later.', 'peanut-license-server')],
+                ];
+            }
+
             return ['valid' => true, 'checks' => $checks, 'errors' => []];
+        }
+
+        if (!empty($restrictions['corrupt'])) {
+            Peanut_Logger::error('License restrictions are unreadable; refusing request', [
+                'license_id' => $license_id,
+                'fields' => $restrictions['corrupt'],
+            ]);
+
+            return [
+                'valid' => false,
+                'checks' => ['ip' => false, 'domain' => false, 'hardware' => false],
+                'errors' => [__('License restrictions could not be verified. Please contact support.', 'peanut-license-server')],
+            ];
         }
 
         // IP Whitelist check
@@ -53,26 +97,31 @@ class Peanut_Security_Features {
 
         // Domain lock check
         if (!empty($restrictions['allowed_domains'])) {
-            $site_url = $request_data['site_url'] ?? '';
+            $site_url = (string) ($request_data['site_url'] ?? '');
             $checks['domain'] = self::check_domain_lock($site_url, $restrictions['allowed_domains']);
 
             if (!$checks['domain']) {
                 $errors[] = sprintf(
                     __('Domain %s is not authorized for this license.', 'peanut-license-server'),
-                    parse_url($site_url, PHP_URL_HOST)
+                    (string) parse_url($site_url, PHP_URL_HOST)
                 );
             }
         }
 
-        // Hardware fingerprint check
-        if (!empty($restrictions['hardware_id']) && !empty($request_data['hardware_id'])) {
-            $checks['hardware'] = self::check_hardware_fingerprint(
-                $request_data['hardware_id'],
-                $restrictions['hardware_id']
-            );
+        // Hardware fingerprint check. A locked license with no fingerprint in
+        // the request is refused rather than waved through.
+        if (!empty($restrictions['hardware_id'])) {
+            $provided = isset($request_data['hardware_id']) ? (string) $request_data['hardware_id'] : '';
 
-            if (!$checks['hardware']) {
-                $errors[] = __('Hardware fingerprint does not match.', 'peanut-license-server');
+            if ($provided === '') {
+                $checks['hardware'] = false;
+                $errors[] = __('This license is locked to a specific server, but the request did not include a hardware fingerprint.', 'peanut-license-server');
+            } else {
+                $checks['hardware'] = self::check_hardware_fingerprint($provided, $restrictions['hardware_id']);
+
+                if (!$checks['hardware']) {
+                    $errors[] = __('Hardware fingerprint does not match.', 'peanut-license-server');
+                }
             }
         }
 
@@ -221,14 +270,59 @@ class Peanut_Security_Features {
             return null;
         }
 
-        return [
-            'ip_whitelist' => $row->ip_whitelist ? json_decode($row->ip_whitelist, true) : [],
-            'allowed_domains' => $row->allowed_domains ? json_decode($row->allowed_domains, true) : [],
+        $corrupt = [];
+        $ip_whitelist = self::decode_list($row->ip_whitelist ?? null);
+        if ($ip_whitelist === null) {
+            $corrupt[] = 'ip_whitelist';
+            $ip_whitelist = [];
+        }
+
+        $allowed_domains = self::decode_list($row->allowed_domains ?? null);
+        if ($allowed_domains === null) {
+            $corrupt[] = 'allowed_domains';
+            $allowed_domains = [];
+        }
+
+        $restrictions = [
+            'ip_whitelist' => $ip_whitelist,
+            'allowed_domains' => $allowed_domains,
             'hardware_id' => $row->hardware_id,
             'enforce_ip' => (bool) $row->enforce_ip,
             'enforce_domain' => (bool) $row->enforce_domain,
             'enforce_hardware' => (bool) $row->enforce_hardware,
         ];
+
+        // Only present when something could not be decoded, so the admin API
+        // response is unchanged for healthy rows. validate_request() refuses
+        // a license whose restrictions are corrupt.
+        if (!empty($corrupt)) {
+            $restrictions['corrupt'] = $corrupt;
+        }
+
+        return $restrictions;
+    }
+
+    /**
+     * Decode a stored JSON list column.
+     *
+     * @param mixed $value Stored column value.
+     * @return string[]|null The list ([] when empty), or null when the stored
+     *                       value is not a JSON list (corrupt).
+     */
+    private static function decode_list($value): ?array {
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        $decoded = json_decode((string) $value, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        return array_values(array_filter(array_map(
+            static fn($item) => is_scalar($item) ? trim((string) $item) : '',
+            $decoded
+        ), static fn($item) => $item !== ''));
     }
 
     /**
