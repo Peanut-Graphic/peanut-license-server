@@ -514,12 +514,14 @@ $_mock_user_can       = true;
 $_mock_user_logged_in = true;
 // Identity of the logged-in mock user (ID 1 unless a test switches it with
 // PeanutTestHelper::setCurrentUser()). Ownership checks compare against these.
-$_mock_user_id    = 1;
-$_mock_user_email = 'test@example.com';
+// PHPUnit includes this file from inside a method, so plain assignments here
+// are not globals; set them through $GLOBALS (and default on read).
+$GLOBALS['_mock_user_id']    = 1;
+$GLOBALS['_mock_user_email'] = 'test@example.com';
 
 function get_current_user_id(): int {
     global $_mock_user_logged_in, $_mock_user_id;
-    return $_mock_user_logged_in ? (int) $_mock_user_id : 0;
+    return ($_mock_user_logged_in ?? true) ? (int) ($_mock_user_id ?? 1) : 0;
 }
 
 function wp_get_current_user(): object {
@@ -527,7 +529,7 @@ function wp_get_current_user(): object {
     $id = get_current_user_id();
     return (object) [
         'ID'           => $id,
-        'user_email'   => $id ? $_mock_user_email : '',
+        'user_email'   => $id ? ($_mock_user_email ?? 'test@example.com') : '',
         'user_login'   => $id ? 'user' . $id : '',
         'display_name' => $id ? 'User ' . $id : '',
     ];
