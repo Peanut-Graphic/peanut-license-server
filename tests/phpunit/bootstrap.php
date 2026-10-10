@@ -110,6 +110,8 @@ if (!defined('ARRAY_N')) {
  */
 class WP_REST_Request {
     private array $params = [];
+    private array $headers = [];
+    private array $query_params = [];
     private string $method;
     private string $route;
 
@@ -128,6 +130,33 @@ class WP_REST_Request {
 
     public function get_params(): array {
         return $this->params;
+    }
+
+    /**
+     * Headers are canonicalized the way WP_REST_Request does it (lowercase,
+     * dashes as underscores), so X-Peanut-License-Key == x_peanut_license_key.
+     */
+    public function set_header(string $key, $value): void {
+        $this->headers[strtolower(str_replace('-', '_', $key))] = (string) $value;
+    }
+
+    public function get_header(string $key): ?string {
+        return $this->headers[strtolower(str_replace('-', '_', $key))] ?? null;
+    }
+
+    /**
+     * Mark params as having arrived in the URL query string (they are also
+     * visible through get_param(), as in WordPress).
+     */
+    public function set_query_params(array $params): void {
+        $this->query_params = $params;
+        foreach ($params as $key => $value) {
+            $this->params[$key] = $value;
+        }
+    }
+
+    public function get_query_params(): array {
+        return $this->query_params;
     }
 
     public function get_method(): string {
@@ -603,7 +632,11 @@ function apply_filters(string $tag, $value, ...$args) {
     return $value;
 }
 
+$_mock_rest_routes = [];
+
 function register_rest_route(string $namespace, string $route, array $args = []): bool {
+    global $_mock_rest_routes;
+    $_mock_rest_routes[$namespace . $route] = $args;
     return true;
 }
 
