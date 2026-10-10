@@ -466,4 +466,34 @@ class WooCommercePortalOwnershipTest extends TestCase {
         $this->assertFalse($result['success']);
         $this->assertSame([], $this->spy->writes);
     }
+
+    /** @test */
+    public function portal_wires_the_claim_request_form_and_the_claim_link(): void {
+        PeanutTestHelper::setUserCan(false);
+        PeanutTestHelper::setCurrentUser(2, 'victim@example.com');
+        $this->spy->results['user_id IS NULL OR user_id = 0'] = $this->claimableRows();
+        $this->spy->results['WHERE id IN'] = $this->claimableRows();
+
+        // A forged POST without the nonce sends nothing.
+        $_POST = ['peanut_claim_request' => '1', 'peanut_claim_email' => 'victim@example.com', '_peanut_claim_nonce' => 'nope'];
+        $html = $this->renderPortal();
+        $this->assertSame([], PeanutTestHelper::getSentEmails());
+        $this->assertStringContainsString('session expired', $html);
+
+        // With the nonce, the link is mailed to the purchase address.
+        $_POST['_peanut_claim_nonce'] = wp_create_nonce('peanut_license_claim_request');
+        $this->renderPortal();
+        $emails = PeanutTestHelper::getSentEmails();
+        $this->assertCount(1, $emails);
+        $this->assertSame([], $this->spy->writes);
+
+        // Opening the mailed link (signed in as the requester) binds the licenses.
+        $_POST = [];
+        $this->assertSame(1, preg_match('/(https?:\/\/\S+peanut_claim_sig=\S+)/', $emails[0]['message'], $m));
+        parse_str((string) parse_url($m[1], PHP_URL_QUERY), $_GET);
+        $html = $this->renderPortal();
+
+        $this->assertCount(2, $this->spy->writes);
+        $this->assertStringContainsString('now linked to your account', $html);
+    }
 }
