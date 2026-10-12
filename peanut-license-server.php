@@ -257,6 +257,7 @@ final class Peanut_License_Server {
 
         // Admin REST API
         require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-admin-rest-api.php';
+        require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-entitlement-projection.php';
 
         // WooCommerce integration (customer portal)
         require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-woocommerce-integration.php';
@@ -278,6 +279,7 @@ final class Peanut_License_Server {
         // WP-CLI commands
         if (defined('WP_CLI') && WP_CLI) {
             require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-cli-commands.php';
+            require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-projection-cli.php';
         }
     }
 
@@ -578,6 +580,7 @@ final class Peanut_License_Server {
     public function register_rest_routes(): void {
         $api = new Peanut_API_Endpoints();
         $api->register_routes();
+        Peanut_Entitlement_Projection::register_routes();
     }
 
     /**
