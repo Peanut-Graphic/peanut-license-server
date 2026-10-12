@@ -32,6 +32,8 @@ class EntitlementProjectionContractTest extends WP_UnitTestCase {
     }
     private function dispatch(string $token, string $method = 'GET', string $route = '/peanut-projection/v1/entitlements') {
         $request = new WP_REST_Request($method, $route); $request->set_header('Authorization', 'Bearer ' . $token);
+        // Supply a valid create payload so WordPress reaches the permission check.
+        if ($method === 'POST' && $route === '/peanut-admin/v1/licenses') { $request->set_param('customer_email', 'denied@example.test'); $request->set_param('product_id', 10); }
         return rest_get_server()->dispatch($request);
     }
     public function test_read_principals_are_isolated_rotatable_revocable_and_cannot_write(): void {
