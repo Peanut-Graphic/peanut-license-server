@@ -51,9 +51,11 @@ peanut_release_config() {
       VCONST=FFFL_VERSION; STABLE=""
       INCLUDE=(admin assets composer.json composer.lock connectors frontend includes public formflow-lite.php README.md CHANGELOG.md vendor) ;;
     peanut-license-server)
-      REPO=Peanut-Graphic/peanut-license-server; BUILD=fulltree; MAINPHP=peanut-license-server.php
+      REPO=Peanut-Graphic/peanut-license-server; BUILD=composer; MAINPHP=peanut-license-server.php
       # Same as formflow-lite: README.md, no readme.txt, nothing to rewrite.
-      VCONST=PEANUT_LICENSE_SERVER_VERSION; STABLE=""; INCLUDE=() ;;
+      VCONST=PEANUT_LICENSE_SERVER_VERSION; STABLE=""
+      # Self-updates fail closed without the bundled formflow-core verifier.
+      INCLUDE=(admin assets composer.json composer.lock DOCUMENTATION docs download.php frontend includes peanut-license-server.php README.md CHANGELOG.md sdk uninstall.php vendor) ;;
     peanut-festival)
       # BUILD=composer since 1.3.2: Festival now bundles peanut/formflow-core,
       # which carries the signed-update verifier it registers at boot. Without
