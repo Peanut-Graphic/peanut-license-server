@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-10-15
+
+### Added
+- Release the scoped read-only HUB entitlement projection with explicit source-account, agency and license-ID bindings. Trusted operators can provision, rotate and revoke projection principals without changing license state or granting administrative mutation access. Responses omit raw keys, customer identity, billing and signing material. Existing license validation, activation and signed plugin update authority remain unchanged.
+
+### Security
+- Update transitive brace-expansion to 1.1.21 to fix the reported CPU denial-of-service advisory.
+
+### Changed
+- Include the current reviewed frontend dependency updates in the release package.
+
 ## [1.5.1] - 2026-10-10
 
 ### Security
