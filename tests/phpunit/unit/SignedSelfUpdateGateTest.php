@@ -44,6 +44,17 @@ final class SignedSelfUpdateGateTest extends TestCase {
         $this->assertSame('^0.6.0', $composer['require']['peanut/formflow-core'] ?? null);
     }
 
+    public function test_release_recipe_delivers_the_runtime_verifier(): void {
+        $recipe = PEANUT_LICENSE_SERVER_PATH . '.peanut/release/plugin-release-config.sh';
+        $command = 'source ' . escapeshellarg($recipe)
+            . '; peanut_release_config peanut-license-server; printf "%s\\n" "$BUILD" "${INCLUDE[@]}"';
+        $output = [];
+        exec('bash -c ' . escapeshellarg($command), $output, $exit);
+        $this->assertSame(0, $exit, 'The actual publisher recipe must load.');
+        $this->assertSame('composer', array_shift($output), 'Install the locked production verifier before packaging.');
+        $this->assertContains('vendor', $output, 'The installed verifier must reach the release artifact.');
+    }
+
     public function test_license_server_is_registered_on_its_own_update_channel(): void {
         $this->assertTrue(Peanut_Update_Server::is_valid_product('peanut-license-server'));
 
