@@ -202,7 +202,7 @@ jobs:
           coverage: none
           tools: composer
       - name: Reject Git metadata in release artifacts
-        run: bash .peanut/release/test-plugin-artifact.sh
+        run: bash tests/release-artifact.test.sh
       - name: Build and inspect an unsigned production artifact
         shell: bash
         run: |
