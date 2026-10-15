@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-10-15
+
+### Fixed
+- Strip nested Git repository metadata from release packages, including Composer source dependencies. Verify the final ZIP contains no `.git` path before signing. Runtime dependencies and signature verification remain included.
+
+### Release prerequisites
+- Merge the canonical peanut-meta packaging fix before building 1.5.3. This change prepares the release; it does not publish or install it.
+
 ## [1.5.2] - 2026-10-15
 
 ### Added
