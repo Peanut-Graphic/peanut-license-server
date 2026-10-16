@@ -10,6 +10,17 @@ declare(strict_types=1);
 use PHPUnit\Framework\TestCase;
 
 final class LifecycleBootstrapTest extends TestCase {
+    public function test_inactive_plugin_include_registers_lifecycle_callbacks_before_init(): void {
+        $root = dirname(__DIR__, 3);
+        $process = proc_open([PHP_BINARY, $root . '/scripts/tests/plugin-lifecycle-registration.php', $root . '/peanut-license-server.php'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        $this->assertIsResource($process);
+        $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $this->assertSame(0, proc_close($process), $output);
+        $this->assertStringContainsString('lifecycle callbacks available on inactive-plugin include', $output);
+    }
+
     public function test_services_initialize_after_the_server_singleton_is_assigned(): void {
         $source = file_get_contents(dirname(__DIR__, 3) . '/peanut-license-server.php');
         $this->assertIsString($source);

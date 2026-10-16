@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.7] - 2026-10-16
+
+### Fixed
+- Register activation/deactivation callbacks when the plugin file is included, so first activation creates its tables and defaults before the next request.
+- Remove all scheduled training events on deactivation, including duplicate events, while leaving unrelated cron hooks unchanged.
+- Keep ordinary runtime service initialization deferred to init; no schema, ownership, restriction or credential change.
+
 ## [1.5.6] - 2026-10-16
 
 ### Fixed

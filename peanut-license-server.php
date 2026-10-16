@@ -3,7 +3,7 @@
  * Plugin Name: Peanut License Server
  * Plugin URI: https://peanutgraphic.com/peanut-license-server
  * Description: License, subscription, and signed update services for Peanut plugins.
- * Version: 1.5.6
+ * Version: 1.5.7
  * Author: Peanut Graphic
  * Author URI: https://peanutgraphic.com
  * License: GPL-2.0-or-later
@@ -17,7 +17,7 @@
 defined('ABSPATH') || exit;
 
 // Plugin constants
-define('PEANUT_LICENSE_SERVER_VERSION', '1.5.6');
+define('PEANUT_LICENSE_SERVER_VERSION', '1.5.7');
 define('PEANUT_LICENSE_SERVER_PATH', plugin_dir_path(__FILE__));
 define('PEANUT_LICENSE_SERVER_URL', plugin_dir_url(__FILE__));
 define('PEANUT_LICENSE_SERVER_BASENAME', plugin_basename(__FILE__));
@@ -291,10 +291,6 @@ final class Peanut_License_Server {
         // Logged-in administrators only: the handler has no license check, so
         // there is deliberately no wp_ajax_nopriv_ registration.
         add_action('wp_ajax_peanut_download_plugin', [$this, 'handle_ajax_download']);
-
-        // Activation/deactivation
-        register_activation_hook(__FILE__, [$this, 'activate']);
-        register_deactivation_hook(__FILE__, [$this, 'deactivate']);
 
         // Init
         add_action('init', [$this, 'init']);
@@ -940,6 +936,15 @@ function peanut_license_server(): Peanut_License_Server {
 
     return $server;
 }
+
+// WordPress includes an inactive plugin after init during activation. Register
+// lifecycle callbacks at file load, without starting normal runtime services.
+register_activation_hook(__FILE__, static function (): void {
+    Peanut_License_Server::get_instance()->activate();
+});
+register_deactivation_hook(__FILE__, static function (): void {
+    Peanut_License_Server::get_instance()->deactivate();
+});
 
 // Start the plugin
 add_action('init', 'peanut_license_server', 0);
