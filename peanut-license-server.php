@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name: Peanut License Server
- * Plugin URI: https://peanutgraphic.com/peanut-suite
- * Description: License management, validation, and update server for Peanut Suite WordPress plugin.
- * Version: 1.5.1
+ * Plugin URI: https://peanutgraphic.com/peanut-license-server
+ * Description: License, subscription, and signed update services for Peanut plugins.
+ * Version: 1.5.4
  * Author: Peanut Graphic
  * Author URI: https://peanutgraphic.com
  * License: GPL-2.0-or-later
@@ -17,7 +17,7 @@
 defined('ABSPATH') || exit;
 
 // Plugin constants
-define('PEANUT_LICENSE_SERVER_VERSION', '1.5.1');
+define('PEANUT_LICENSE_SERVER_VERSION', '1.5.4');
 define('PEANUT_LICENSE_SERVER_PATH', plugin_dir_path(__FILE__));
 define('PEANUT_LICENSE_SERVER_URL', plugin_dir_url(__FILE__));
 define('PEANUT_LICENSE_SERVER_BASENAME', plugin_basename(__FILE__));
@@ -257,6 +257,7 @@ final class Peanut_License_Server {
 
         // Admin REST API
         require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-admin-rest-api.php';
+        require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-entitlement-projection.php';
 
         // WooCommerce integration (customer portal)
         require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-woocommerce-integration.php';
@@ -278,6 +279,7 @@ final class Peanut_License_Server {
         // WP-CLI commands
         if (defined('WP_CLI') && WP_CLI) {
             require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-cli-commands.php';
+            require_once PEANUT_LICENSE_SERVER_PATH . 'includes/class-projection-cli.php';
         }
     }
 
@@ -578,6 +580,7 @@ final class Peanut_License_Server {
     public function register_rest_routes(): void {
         $api = new Peanut_API_Endpoints();
         $api->register_routes();
+        Peanut_Entitlement_Projection::register_routes();
     }
 
     /**

@@ -556,6 +556,12 @@ class Peanut_Update_Server {
      * Get plugin description
      */
     private function get_description(): string {
+        if ($this->product_slug !== 'peanut-suite') {
+            $product = $this->get_product_config();
+            return '<h3>' . esc_html($product['name']) . '</h3><p>'
+                . esc_html($product['description']) . '</p>';
+        }
+
         return <<<HTML
 <h3>The Complete Marketing Toolkit for WordPress</h3>
 
@@ -584,6 +590,20 @@ HTML;
      * Get installation instructions
      */
     private function get_installation_instructions(): string {
+        if ($this->product_slug !== 'peanut-suite') {
+            $product = $this->get_product_config();
+            $name = esc_html($product['name']);
+            $slug = esc_html($this->product_slug);
+            $wp = esc_html((string) get_option("peanut_{$this->product_slug}_requires_wp", '6.0'));
+            $php = esc_html((string) get_option("peanut_{$this->product_slug}_requires_php", '8.0'));
+            return '<ol><li>Upload the <code>' . $slug . '</code> folder to '
+                . '<code>/wp-content/plugins/</code>.</li><li>Activate ' . $name
+                . ' through the Plugins menu in WordPress.</li><li>Follow the '
+                . $name . ' setup instructions for configuration and licensing requirements.</li></ol>'
+                . '<h4>Requirements</h4><ul><li>WordPress ' . $wp
+                . ' or higher</li><li>PHP ' . $php . ' or higher</li></ul>';
+        }
+
         return <<<HTML
 <ol>
     <li>Upload the <code>peanut-suite</code> folder to the <code>/wp-content/plugins/</code> directory</li>
@@ -604,24 +624,22 @@ HTML;
      * Get default changelog
      */
     private function get_default_changelog(string $version): string {
-        return <<<HTML
-<h4>{$version}</h4>
-<ul>
-    <li>Initial release</li>
-    <li>UTM Builder with campaign management</li>
-    <li>Link shortener with QR codes</li>
-    <li>Contact manager with segmentation</li>
-    <li>Popup builder (Pro)</li>
-    <li>Site monitor (Agency)</li>
-    <li>Analytics dashboard</li>
-</ul>
-HTML;
+        $product = $this->get_product_config();
+        return '<h4>' . esc_html($version) . '</h4><p>No release notes have been provided for '
+            . esc_html($product['name']) . ' at this version.</p>';
     }
 
     /**
      * Get FAQ
      */
     private function get_faq(): string {
+        if ($this->product_slug !== 'peanut-suite') {
+            $product = $this->get_product_config();
+            return '<h4>Where can I find product and support information?</h4><p>Visit '
+                . '<a href="' . esc_url($product['homepage']) . '">'
+                . esc_html($product['name']) . '</a> for product and support information.</p>';
+        }
+
         return <<<HTML
 <h4>How do I activate my license?</h4>
 <p>Go to Peanut Suite > Settings in your WordPress admin, enter your license key, and click Activate.</p>
