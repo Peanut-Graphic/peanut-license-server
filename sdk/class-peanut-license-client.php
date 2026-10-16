@@ -634,7 +634,30 @@ if (!class_exists('Peanut_License_Client')) {
             $body = wp_remote_retrieve_body($response);
             $data = json_decode($body, true);
 
-            if (json_last_error() !== JSON_ERROR_NONE) {
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($data) || array_values($data) === $data) {
+                return [
+                    'success' => false,
+                    'error' => 'invalid_response',
+                    'message' => __('Invalid response from license server.', 'peanut-license-client'),
+                ];
+            }
+
+            $status = wp_remote_retrieve_response_code($response);
+            if ($status < 200 || $status >= 300 || isset($data['code'])) {
+                return [
+                    'success' => false,
+                    'error' => is_string($data['error'] ?? null) ? $data['error']
+                        : (is_string($data['code'] ?? null) ? $data['code'] : 'server_error'),
+                    'message' => is_string($data['message'] ?? null) ? $data['message']
+                        : __('License server request failed.', 'peanut-license-client'),
+                ];
+            }
+
+            // License operations require the documented boolean outcome. Update
+            // metadata uses a different shape and is returned unchanged.
+            if (strpos($endpoint, 'license/') === 0 && (!is_bool($data['success'] ?? null)
+                || ($data['success'] === true && in_array($endpoint, ['license/validate', 'license/status'], true)
+                    && !is_array($data['license'] ?? null)))) {
                 return [
                     'success' => false,
                     'error' => 'invalid_response',

@@ -4,7 +4,7 @@ Decision: code is prepared for review; production release is NOT yet cleared. No
 
 ## October 16 staging continuation
 
-The historical observations and proposed version numbers below are retained as October 10 evidence, not current deployment facts. Current main and the separately verified production release are1.5.4; the1.5.1 draft version must not overwrite them. This staging branch refreshes the SDK proposal onto current main and preserves all ownership/restriction guards. It is not released. Synthetic WordPress/WooCommerce and local mail-sink qualification remains required; production WooCommerce stays inactive and no customer records or bindings may be changed.
+The historical observations and proposed version numbers below are retained as October 10 evidence, not current deployment facts. Current main and the separately verified production release are 1.5.5; the1.5.1 draft version must not overwrite them. This staging branch refreshes the SDK proposal onto current main and preserves all ownership/restriction guards. It is not released. Synthetic WordPress/WooCommerce and local mail-sink qualification remains required; production WooCommerce stays inactive and no customer records or bindings may be changed.
 
 ## Production evidence
 

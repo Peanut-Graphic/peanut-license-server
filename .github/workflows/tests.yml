@@ -25,6 +25,10 @@ jobs:
         run: php scripts/verify-php-runtime.php --expect-runtime=8.0
       - name: Parse every tracked PHP file on PHP 8.0
         run: git ls-files -z '*.php' | xargs -0 -n1 php -l
+      - name: SDK transport and response contracts
+        run: |
+          php scripts/tests/pr98-client-requests.php sdk/class-peanut-license-client.php
+          php scripts/tests/sdk-response-contract.php sdk/class-peanut-license-client.php
 
   # Composer's development graph starts at PHP 8.1 because PHPUnit 10 does.
   # Exercise every self-contained mock suite at that exact floor while keeping

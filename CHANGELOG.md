@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Normalize SDK HTTP/REST failures and reject malformed license outcomes without warnings, retaining restriction errors and update metadata.
+
 ## [1.5.5] - 2026-10-16
 
 ### Fixed
