@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4] - 2026-10-16
+
 ### Fixed
 - Show the selected product's description, installation folder and support information in update dialogs instead of Peanut Suite content for every plugin. When release notes are absent, identify the product and version without inventing an initial-release feature list. Escape fallback metadata values while preserving operator-provided release notes and download routing.
 
