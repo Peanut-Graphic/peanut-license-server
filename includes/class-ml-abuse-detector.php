@@ -337,13 +337,10 @@ class Peanut_ML_Abuse_Detector {
     }
 
     /**
-     * Unschedule the training cron event.
+     * Unschedule all training cron events.
      * Call this from the plugin deactivation hook.
      */
     public static function unschedule_training(): void {
-        $timestamp = wp_next_scheduled( 'peanut_ml_train_abuse_model' );
-        if ( $timestamp ) {
-            wp_unschedule_event( $timestamp, 'peanut_ml_train_abuse_model' );
-        }
+        wp_clear_scheduled_hook( 'peanut_ml_train_abuse_model' );
     }
 }
