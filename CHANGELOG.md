@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.5.1 — pending release
+## Unreleased — client compatibility staging
 
 - Add opt-in `peanut_license_hardware_id` compatibility for existing server hardware locks; no automatic rebinding.
 - Move supported license status/update request keys to headers.
