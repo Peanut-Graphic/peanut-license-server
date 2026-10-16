@@ -1,11 +1,5 @@
 # Changelog
 
-## Unreleased — client compatibility staging
-
-- Add opt-in `peanut_license_hardware_id` compatibility for existing server hardware locks; no automatic rebinding.
-- Move supported license status/update request keys to headers.
-- Release is gated by the PR #98 rollout checklist and real WordPress/WooCommerce claim testing.
-
 All notable changes to Peanut License Server will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -13,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.6] - 2026-10-16
+
+### Fixed
+- Use header credentials in the bundled SDK and accept an opt-in exact existing hardware fingerprint, with no automatic rebinding.
 - Normalize SDK HTTP/REST failures and reject malformed license outcomes without warnings, retaining restriction errors and update metadata.
+- Preserve ownership, IP/domain/hardware restrictions and signed package verification.
 
 ## [1.5.5] - 2026-10-16
 
