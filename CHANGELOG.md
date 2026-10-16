@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.5] - 2026-10-16
+
+### Fixed
+- Accept header-only credentials on activation/deactivation POST routes while retaining legacy body credentials and the existing missing-key error contract.
+- Keep malformed credential rejection, hardware/IP/domain restrictions, ownership checks and entitlement signing unchanged.
+- Add real WordPress REST contracts for both credential transports and explicit denials.
+
 ## [1.5.4] - 2026-10-16
 
 ### Fixed

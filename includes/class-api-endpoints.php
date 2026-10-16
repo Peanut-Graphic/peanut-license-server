@@ -20,14 +20,15 @@ class Peanut_API_Endpoints {
      * Register all routes
      */
     public function register_routes(): void {
-        // License validation and activation
+        // License validation and activation. Key presence is checked by the handler
+        // so a header-only request can pass WordPress parameter validation.
         register_rest_route(self::NAMESPACE, '/license/validate', [
             'methods' => WP_REST_Server::CREATABLE,
             'callback' => [$this, 'validate_license'],
             'permission_callback' => [Peanut_API_Security::class, 'permission_public_license'],
             'args' => [
                 'license_key' => [
-                    'required' => true,
+                    'required' => false,
                     'type' => 'string',
                     'sanitize_callback' => 'sanitize_text_field',
                 ],
@@ -63,7 +64,7 @@ class Peanut_API_Endpoints {
             'permission_callback' => [Peanut_API_Security::class, 'permission_public_license'],
             'args' => [
                 'license_key' => [
-                    'required' => true,
+                    'required' => false,
                     'type' => 'string',
                     'sanitize_callback' => 'sanitize_text_field',
                 ],
@@ -292,7 +293,16 @@ class Peanut_API_Endpoints {
         return new WP_REST_Response( ( new Peanut_License_Signer() )->public_key(), 200 );
     }
 
-    public function validate_license(WP_REST_Request $request): WP_REST_Response {
+    public function validate_license(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        $supplied = Peanut_API_Security::get_license_key_from_request($request, 'license_key');
+        if ($supplied['key'] === null) {
+            return new WP_Error(
+                'rest_missing_callback_param',
+                __('Missing parameter(s): license_key', 'peanut-license-server'),
+                ['status' => 400, 'params' => ['license_key']]
+            );
+        }
+
         // Check rate limit
         $rate_limited = Peanut_Rate_Limiter::check('license_validate');
         if ($rate_limited) {
@@ -302,7 +312,7 @@ class Peanut_API_Endpoints {
         // Record request
         Peanut_Rate_Limiter::record_request('license_validate');
 
-        $license_key = Peanut_License_Validator::sanitize_key($request->get_param('license_key'));
+        $license_key = Peanut_License_Validator::sanitize_key($supplied['key']);
         $site_url = $request->get_param('site_url');
 
         if (!Peanut_License_Validator::is_valid_format($license_key)) {
@@ -360,7 +370,16 @@ class Peanut_API_Endpoints {
     /**
      * Deactivate license from site
      */
-    public function deactivate_license(WP_REST_Request $request): WP_REST_Response {
+    public function deactivate_license(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        $supplied = Peanut_API_Security::get_license_key_from_request($request, 'license_key');
+        if ($supplied['key'] === null) {
+            return new WP_Error(
+                'rest_missing_callback_param',
+                __('Missing parameter(s): license_key', 'peanut-license-server'),
+                ['status' => 400, 'params' => ['license_key']]
+            );
+        }
+
         // Check rate limit
         $rate_limited = Peanut_Rate_Limiter::check('license_validate');
         if ($rate_limited) {
@@ -369,7 +388,7 @@ class Peanut_API_Endpoints {
 
         Peanut_Rate_Limiter::record_request('license_validate');
 
-        $license_key = Peanut_License_Validator::sanitize_key($request->get_param('license_key'));
+        $license_key = Peanut_License_Validator::sanitize_key($supplied['key']);
         $site_url = $request->get_param('site_url');
 
         if (!Peanut_License_Validator::is_valid_format($license_key)) {

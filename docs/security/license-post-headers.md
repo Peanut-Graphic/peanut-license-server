@@ -1,0 +1,5 @@
+# License credentials on POST routes
+
+The activation and deactivation routes now resolve `X-Peanut-License-Key` through the same shared credential reader as status/update routes. Existing body parameters remain supported. WordPress cannot mark the body parameter unconditionally required when a request can authenticate through a header; each handler explicitly returns the existing HTTP400 `rest_missing_callback_param` error when no key is supplied anywhere. Site URL validation, header precedence, malformed-credential rejection, rate limiting, saved restrictions and entitlement signing remain unchanged.
+
+A synthetic real WordPress SDK activation reproduced the previous rejection before the handler and succeeds with this patch. Real WordPress contracts cover header-only and legacy body-only activation/deactivation, missing credentials, malformed headers alongside valid body keys, and hardware enforcement even for an existing activation. The SDK/client compatibility draft remains a separate staged change and must follow server deployment. No customer ownership or restriction records are migrated.
