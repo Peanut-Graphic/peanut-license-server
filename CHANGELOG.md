@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.6] - 2026-10-16
+
+### Fixed
+- Use header credentials in the bundled SDK and accept an opt-in exact existing hardware fingerprint, with no automatic rebinding.
+- Normalize SDK HTTP/REST failures and reject malformed license outcomes without warnings, retaining restriction errors and update metadata.
+- Preserve ownership, IP/domain/hardware restrictions and signed package verification.
+
 ## [1.5.5] - 2026-10-16
 
 ### Fixed
